@@ -1,0 +1,36 @@
+
+  <!DOCTYPE html>
+  <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <meta name="theme-color" content="#ffffff" />
+      <link rel="apple-touch-icon" href="/icon.svg" />
+      <title>Redesign page and table</title>
+    </head>
+
+    <body>
+      <div id="root"></div>
+      <script>
+        // Suppress ResizeObserver loop limit exceeded errors which are harmless but annoying
+        const suppressErrors = [
+          'ResizeObserver loop completed with undelivered notifications.',
+          'ResizeObserver loop limit exceeded'
+        ];
+        
+        const handleError = (e) => {
+          if (suppressErrors.includes(e.message) || (e.reason && suppressErrors.includes(e.reason.message))) {
+            e.stopImmediatePropagation();
+            e.stopPropagation();
+            if (e.preventDefault) e.preventDefault();
+            return true;
+          }
+        };
+
+        window.addEventListener('error', handleError, true);
+        window.addEventListener('unhandledrejection', handleError, true);
+      </script>
+      <script type="module" src="/src/main.tsx"></script>
+    </body>
+  </html>
+  
