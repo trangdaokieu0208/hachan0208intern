@@ -74,9 +74,11 @@ export function MasterAE() {
   const tableRef = useRef<any>(null);
   const [, setUpdateTrigger] = useState(0);
 
-  const handleCellChange = (rowIndex: number, colKey: string, value: any) => {
+  const handleCellChange = (row: any, colKey: string, value: any) => {
     updateAppData(prev => {
       const newData = [...prev[activeTab].data];
+      const rowIndex = newData.findIndex(r => r === row || (r.id && r.id === row.id) || (r.No && r.No === row.No) || (r.STT && r.STT === row.STT));
+      if (rowIndex === -1) return prev;
       newData[rowIndex] = { ...newData[rowIndex], [colKey]: value };
       return { ...prev, [activeTab]: { ...prev[activeTab], data: newData } };
     });

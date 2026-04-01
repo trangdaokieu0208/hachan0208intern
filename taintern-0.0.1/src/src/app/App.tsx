@@ -5,7 +5,6 @@ import { AppDataProvider } from './lib/AppDataContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toaster } from 'sonner';
 import { LoadingWrapper } from './components/LoadingWrapper';
-import { GeminiAssistant } from './components/GeminiAssistant';
 import localforage from 'localforage';
 import { toast } from 'sonner';
 
@@ -149,7 +148,6 @@ export default function App() {
       <AppDataProvider>
         <LoadingWrapper>
           <RouterProvider router={router} />
-          <GeminiAssistant />
         </LoadingWrapper>
         <Toaster position="top-right" richColors />
       </AppDataProvider>

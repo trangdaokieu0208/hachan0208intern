@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../components/ui/dialog";
+} from "@/src/app/components/ui/dialog";
 import { toast } from 'sonner';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../components/ui/tooltip';
 import { DataTable } from '../components/DataTable';
@@ -278,9 +278,11 @@ export function BulkPayment() {
       }));
   }, [appData.BankExport.headers]);
 
-  const handleCellChange = (rowIndex: number, colKey: string, value: any) => {
+  const handleCellChange = (row: any, colKey: string, value: any) => {
     updateAppData(prev => {
       const newData = [...prev.BankExport.data];
+      const rowIndex = newData.findIndex(r => r === row || (r["Payment Serial Number"] && r["Payment Serial Number"] === row["Payment Serial Number"]));
+      if (rowIndex === -1) return prev;
       newData[rowIndex] = { ...newData[rowIndex], [colKey]: value };
       return { ...prev, BankExport: { ...prev.BankExport, data: newData } };
     });
@@ -316,7 +318,7 @@ export function BulkPayment() {
               <CreditCard className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-primary tracking-tight uppercase leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Bảng kê thanh toán</h2>
+              <h2 className="text-xl font-black text-primary tracking-tight uppercase leading-tight">Bảng kê thanh toán</h2>
               <p className="text-[0.625rem] font-bold text-primary/40 uppercase tracking-widest">Đối chiếu Bank North AE & Sheet1 AE • {appData.BankExport.data.length} Bản ghi</p>
             </div>
           </div>
@@ -489,7 +491,7 @@ export function BulkPayment() {
                   <div className="w-24 h-24 bg-secondary/10 rounded-full flex items-center justify-center border-2 border-dashed border-primary/10 mb-6">
                     <CreditCard className="w-12 h-12 text-primary/10" />
                   </div>
-                  <p className="text-center max-w-sm font-black uppercase text-lg tracking-tight text-primary" style={{ fontFamily: "'Playfair Display', serif" }}>Chưa có dữ liệu bảng kê</p>
+                  <p className="text-center max-w-sm font-black uppercase text-lg tracking-tight text-primary">Chưa có dữ liệu bảng kê</p>
                   <p className="text-[0.625rem] font-bold uppercase opacity-60 tracking-widest mt-2">Nhấn "TẠO BẢNG KÊ" để bắt đầu</p>
                 </div>
               ) : (

@@ -68,7 +68,23 @@ export function DataCenters() {
   const parseMoneyToNumber = (val: any) => {
     if (typeof val === 'number') return isNaN(val) ? 0 : val;
     if (!val) return 0;
-    const cleanStr = String(val).replace(/[^0-9.-]+/g, "");
+    
+    let str = String(val).trim();
+    
+    // Handle comma as decimal separator
+    // If comma is the last separator, treat it as decimal
+    const lastComma = str.lastIndexOf(',');
+    const lastDot = str.lastIndexOf('.');
+    
+    if (lastComma > lastDot) {
+      // Comma is likely the decimal separator
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else {
+      // Dot is likely the decimal separator
+      str = str.replace(/,/g, '');
+    }
+    
+    const cleanStr = str.replace(/[^0-9.-]+/g, "");
     const num = parseFloat(cleanStr);
     return isNaN(num) ? 0 : num;
   };
@@ -134,6 +150,17 @@ export function DataCenters() {
         const id = String(row["ID"] || row["ID Number"] || "").trim();
         if (!id) return;
 
+        // Lấy thông tin từ Q_Staff qua staffMap
+        const staffInfo = staffMap[id] || {};
+
+        // Kiểm tra Full name - Loại bỏ các dòng đặc biệt
+        const fullName = String(staffInfo["Full name"] || staffInfo["Name"] || staffInfo["Họ và tên"] || "").trim();
+        if (fullName.includes("Total Cost") || fullName.includes("Prepared by TA Supervisor")) return;
+
+        // Kiểm tra Bank Account Number - Chỉ lấy dữ liệu khi có số tài khoản
+        const bankAccount = staffInfo["Bank Account Number"] || staffInfo["STK"] || "";
+        if (!String(bankAccount).trim()) return;
+
         const type = row["Type"] || row["Task Type"] || "";
         const duration = parseMoneyToNumber(row["Duration"] || row["Hours"]) || 0;
 
@@ -163,13 +190,6 @@ export function DataCenters() {
         }
 
         if (!aggregatedData[id]) {
-          // Lấy thông tin từ Q_Staff qua staffMap
-          const staffInfo = staffMap[id] || {};
-          
-          // Kiểm tra Bank Account Number - Chỉ lấy dữ liệu khi có số tài khoản
-          const bankAccount = staffInfo["Bank Account Number"] || staffInfo["STK"] || "";
-          if (!String(bankAccount).trim()) return;
-
           let l07 = staffInfo["L07"] || "";
           let business = staffInfo["Business"] || "";
           
@@ -185,11 +205,11 @@ export function DataCenters() {
             "L07": l07,
             "Business": business,
             "ID Number": id,
-            "Full name": staffInfo["Full name"] || staffInfo["Name"] || staffInfo["Họ và tên"] || "",
+            "Full name": fullName,
             "Salary Scale": rates.scale || "S1",
             "From": fromDate,
             "To": toDate,
-            "Bank Account Number": staffInfo["Bank Account Number"] || staffInfo["STK"] || "",
+            "Bank Account Number": bankAccount,
             "Bank Name": staffInfo["Bank Name"] || staffInfo["Ngân hàng"] || "",
             "CITAD code": staffInfo["CITAD code"] || "",
             "TAX CODE": staffInfo["TAX CODE"] || staffInfo["MST"] || "",
@@ -286,9 +306,11 @@ export function DataCenters() {
     }
   ], []);
 
-  const handleCellChange = useCallback((rowIndex: number, colKey: string, value: any) => {
+  const handleCellChange = useCallback((row: any, colKey: string, value: any) => {
     updateAppData(prev => {
       const newData = [...prev.Final_Centers.data];
+      const rowIndex = newData.findIndex(r => r === row || (r.No && r.No === row.No));
+      if (rowIndex === -1) return prev;
       newData[rowIndex] = { ...newData[rowIndex], [colKey]: value };
       return { ...prev, Final_Centers: { ...prev.Final_Centers, data: newData } };
     });
@@ -335,7 +357,7 @@ export function DataCenters() {
           
           <div className="ml-2">
             <div className="flex items-center gap-2 mb-0.5">
-              <h2 className="text-2xl font-black text-primary tracking-tighter uppercase leading-none" style={{ fontFamily: "'Playfair Display', serif" }}>Final Centers</h2>
+              <h2 className="text-2xl font-black text-primary tracking-tighter uppercase leading-none">Final Centers</h2>
               <div className="px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-full text-[0.5rem] font-black uppercase tracking-widest">Verified</div>
             </div>
             <p className="text-[0.625rem] font-bold text-primary/40 uppercase tracking-[0.2em]">Dữ liệu bảng lương tổng hợp • {appData.Final_Centers.data.length} Bản ghi</p>

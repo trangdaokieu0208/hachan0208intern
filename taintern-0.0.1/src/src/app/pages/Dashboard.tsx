@@ -59,7 +59,7 @@ export function Dashboard() {
               <span className="text-[0.625rem] font-black uppercase tracking-[0.3em] text-emerald-500 mt-1 leading-none">Operational</span>
             </div>
           </div>
-          <h1 className="text-6xl font-normal text-slate-900 tracking-tighter leading-none" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h1 className="text-6xl font-normal text-slate-900 tracking-tighter leading-none">
             Payroll <span className="italic text-slate-400">Intelligence</span>
           </h1>
           <p className="text-slate-500 max-w-lg text-sm font-medium leading-relaxed">
@@ -115,8 +115,8 @@ export function Dashboard() {
           <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center border-2 border-slate-200">
             <TrendingUp className="w-4 h-4 text-slate-400" />
           </div>
-          <h2 className="text-3xl font-normal text-slate-900 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
-            Data <span className="italic">Visualization</span>
+          <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">
+            Data <span className="italic text-primary">Visualization</span>
           </h2>
         </div>
         <DashboardCharts />
@@ -129,8 +129,8 @@ export function Dashboard() {
             <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center border-2 border-slate-200">
               <Zap className="w-4 h-4 text-slate-400" />
             </div>
-            <h2 className="text-3xl font-normal text-slate-900 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
-              Quick <span className="italic">Actions</span>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">
+              Quick <span className="italic text-primary">Actions</span>
             </h2>
           </div>
           

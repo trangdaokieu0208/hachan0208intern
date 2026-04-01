@@ -334,29 +334,29 @@ export function PivotSheet() {
       {/* Content Card */}
       <motion.div variants={itemVariants} className="bg-card/80 backdrop-blur-md rounded-2xl shadow-hard-lg flex-1 flex flex-col overflow-hidden border-2 border-primary/20">
         <div className="overflow-auto flex-1 custom-scrollbar p-6">
-          <table className="w-full text-left border-collapse border-2 border-primary rounded-xl overflow-hidden">
+          <table className="text-left border-2 border-primary rounded-xl overflow-hidden">
             <thead 
               className="sticky top-0 z-20 bg-white/50 backdrop-blur-md shadow-md"
             >
               <tr className="border-b-2 border-primary/20 bg-white/50">
-                <th rowSpan={2} className="p-3 text-[0.625rem] font-extrabold uppercase border-r-2 border-primary/20 min-w-[120px] text-foreground/60 tracking-widest whitespace-nowrap bg-white/50 backdrop-blur-md">
+                <th rowSpan={2} className="min-w-[120px]">
                   <div className="flex items-center justify-between gap-2">
                     <input 
                       value={appData.PivotConfig.headers['Business']}
                       onChange={(e) => handleUpdateHeader('Business', e.target.value)}
-                      className="bg-transparent border-none outline-none w-full font-extrabold uppercase text-foreground placeholder:text-foreground/30"
+                      className="bg-transparent border-none outline-none w-full text-inherit placeholder:opacity-50"
                     />
                     <button onClick={() => handleSort('business')} className="p-1 hover:bg-primary/10 rounded transition-colors">
                       {getSortIcon('business')}
                     </button>
                   </div>
                 </th>
-                <th rowSpan={2} className="p-3 text-[0.625rem] font-extrabold uppercase border-r-2 border-primary/20 min-w-[150px] text-foreground/60 tracking-widest whitespace-nowrap">
+                <th rowSpan={2} className="min-w-[150px]">
                   <div className="flex items-center justify-between gap-2">
                     <input 
                       value={appData.PivotConfig.headers['L07']}
                       onChange={(e) => handleUpdateHeader('L07', e.target.value)}
-                      className="bg-transparent border-none outline-none w-full font-extrabold uppercase text-foreground placeholder:text-foreground/30"
+                      className="bg-transparent border-none outline-none w-full text-inherit placeholder:opacity-50"
                     />
                     <button onClick={() => handleSort('center')} className="p-1 hover:bg-primary/10 rounded transition-colors">
                       {getSortIcon('center')}
@@ -364,24 +364,24 @@ export function PivotSheet() {
                   </div>
                 </th>
                 {pivotData.activeCols.map(c => (
-                  <th key={c.key} className="p-3 text-center text-[0.625rem] font-extrabold uppercase text-foreground/60 border-r-2 border-primary/20 border-b-2 border-primary/20 tracking-widest whitespace-nowrap">
+                  <th key={c.key}>
                     <input 
                       value={c.code}
                       onChange={(e) => handleUpdateChargeCode(c.key, e.target.value)}
-                      className="bg-transparent border-none outline-none w-full text-center font-extrabold uppercase text-foreground placeholder:text-foreground/30"
+                      className="bg-transparent border-none outline-none w-full text-center text-inherit placeholder:opacity-50"
                     />
                   </th>
                 ))}
-                <th className="p-3 text-center text-[0.625rem] font-black uppercase border-b-2 border-primary/20 whitespace-nowrap bg-white/50 backdrop-blur-md"></th>
+                <th></th>
               </tr>
               <tr className="border-b-2 border-primary/20 bg-white/50">
                 {pivotData.activeCols.map(c => (
-                  <th key={c.key} className="p-3 text-[0.625rem] font-extrabold uppercase border-r-2 border-primary/20 text-foreground/60 tracking-widest whitespace-nowrap bg-white/50 backdrop-blur-md">
+                  <th key={c.key}>
                     <div className="flex items-center justify-between gap-2">
                       <input 
                         value={c.label}
                         onChange={(e) => handleUpdateChargeLabel(c.key, e.target.value)}
-                        className="bg-transparent border-none outline-none w-full font-extrabold uppercase text-foreground placeholder:text-foreground/30"
+                        className="bg-transparent border-none outline-none w-full text-inherit placeholder:opacity-50"
                       />
                       <button onClick={() => handleSort(c.key)} className="p-1 hover:bg-primary/10 rounded transition-colors">
                         {getSortIcon(c.key)}
@@ -389,12 +389,12 @@ export function PivotSheet() {
                     </div>
                   </th>
                 ))}
-                <th className="p-3 text-[0.625rem] font-extrabold uppercase min-w-[150px] text-foreground/60 tracking-widest whitespace-nowrap">
+                <th className="min-w-[150px]">
                   <div className="flex items-center justify-between gap-2">
                     <input 
                       value={appData.PivotConfig.headers['GRAND_TOTAL']}
                       onChange={(e) => handleUpdateHeader('GRAND_TOTAL', e.target.value)}
-                      className="bg-transparent border-none outline-none w-full font-extrabold uppercase text-foreground placeholder:text-foreground/30"
+                      className="bg-transparent border-none outline-none w-full text-inherit placeholder:opacity-50"
                     />
                     <button onClick={() => handleSort('rowTotal')} className="p-1 hover:bg-primary/10 rounded transition-colors">
                       {getSortIcon('rowTotal')}
@@ -405,30 +405,30 @@ export function PivotSheet() {
             </thead>
             <tbody>
               {paginatedRows.map((row, idx) => (
-                <tr key={idx} className="border-b-2 border-primary/10 last:border-b-0 hover:bg-primary/5 transition-colors font-sans">
-                  <td className="p-3 text-xs font-bold border-r-2 border-primary/10 text-foreground uppercase tracking-wider">{row.business}</td>
-                  <td className="p-3 text-xs font-semibold border-r-2 border-primary/10 text-foreground">{row.center}</td>
+                <tr key={idx} className="border-b-2 border-primary/10 last:border-b-0 hover:bg-primary/5 transition-colors">
+                  <td className="font-bold uppercase tracking-wider">{row.business}</td>
+                  <td className="font-semibold">{row.center}</td>
                   {pivotData.activeCols.map(c => {
                     const val = row.totals[c.key];
                     return (
-                      <td key={c.key} className="p-3 text-xs text-right font-mono border-r-2 border-primary/10 text-foreground/80 tracking-tighter">
+                      <td key={c.key} className="text-right font-mono tracking-tighter">
                         {val !== 0 ? formatMoneyVND(val) : '-'}
                       </td>
                     );
                   })}
-                  <td className="p-3 text-xs text-right font-bold text-foreground font-mono tracking-tighter">
+                  <td className="text-right font-bold font-mono tracking-tighter">
                     {formatMoneyVND(row.rowTotal)}
                   </td>
                 </tr>
               ))}
               <tr className="bg-secondary/10 font-black border-t-2 border-primary/20 text-foreground">
-                <td colSpan={2} className="p-4 text-right border-r-2 border-primary/20 uppercase text-[0.625rem] tracking-widest text-foreground/60">GRAND TOTAL</td>
+                <td colSpan={2} className="text-right uppercase tracking-widest text-foreground/60">GRAND TOTAL</td>
                 {pivotData.activeCols.map(c => (
-                  <td key={c.key} className="p-4 text-right font-mono border-r-2 border-primary/20">
+                  <td key={c.key} className="text-right font-mono">
                     {formatMoneyVND(pivotData.colTotals[c.key])}
                   </td>
                 ))}
-                <td className="p-4 text-right font-mono">
+                <td className="text-right font-mono">
                   {formatMoneyVND(pivotData.grandTotal)}
                 </td>
               </tr>

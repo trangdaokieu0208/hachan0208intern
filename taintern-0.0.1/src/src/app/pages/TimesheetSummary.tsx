@@ -244,15 +244,27 @@ export function TimesheetSummary() {
     return data;
   }, [appData, fromDate, toDate, sortConfig, editedData]);
 
-  const handleCellChange = (rowIndex: number, colKey: string, value: any) => {
-    const row = summaryData[rowIndex];
+  const handleCellChange = (row: any, colKey: string, value: any) => {
     if (!row) return;
+    
+    let processedValue = value;
+    const numericColumns = [
+      'chargeLxo', 'chargeEc', 'chargePtDemo', 'chargeMktLocal', 
+      'chargeRenewalProjects', 'chargeDiscoveryCamp', 'chargeSummerOuting', 
+      'totalSalary'
+    ];
+
+    if (numericColumns.includes(colKey)) {
+      // Remove currency symbols and formatting then parse
+      const cleanValue = String(value).replace(/[^\d.-]/g, '');
+      processedValue = parseFloat(cleanValue) || 0;
+    }
     
     setEditedData(prev => ({
       ...prev,
       [row.id]: {
         ...(prev[row.id] || {}),
-        [colKey]: value
+        [colKey]: processedValue
       }
     }));
   };
@@ -390,7 +402,7 @@ export function TimesheetSummary() {
               <Calculator className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-primary tracking-tight uppercase leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Timesheet Summary</h2>
+              <h2 className="text-lg font-black text-primary tracking-tight uppercase leading-tight">Timesheet Summary</h2>
               <p className="text-[0.5625rem] font-bold text-primary/40 uppercase tracking-widest">Tính toán lương</p>
             </div>
           </div>
@@ -504,7 +516,7 @@ export function TimesheetSummary() {
                 <div className="w-24 h-24 bg-secondary/10 rounded-full flex items-center justify-center border-2 border-dashed border-primary/10 mb-6">
                   <Calculator className="w-12 h-12 text-primary/10" />
                 </div>
-                <p className="text-center max-w-sm font-black uppercase text-lg tracking-tight text-primary" style={{ fontFamily: "'Playfair Display', serif" }}>Chưa có dữ liệu</p>
+                <p className="text-center max-w-sm font-black uppercase text-lg tracking-tight text-primary">Chưa có dữ liệu</p>
                 <p className="text-[0.625rem] font-bold uppercase opacity-60 tracking-widest mt-2">Vui lòng chọn khoảng thời gian hợp lệ hoặc import dữ liệu.</p>
               </div>
             ) : (

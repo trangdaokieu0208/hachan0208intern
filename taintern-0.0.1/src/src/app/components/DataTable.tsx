@@ -34,7 +34,7 @@ interface DataTableProps {
   showFilters?: boolean;
   selectable?: boolean;
   onSelectionChange?: (selectedRows: any[]) => void;
-  onCellChange?: (rowIndex: number, colKey: string, value: any) => void;
+  onCellChange?: (row: any, colKey: string, value: any) => void;
   onDeleteRow?: (rowIndex: number) => void;
   onDeleteSelection?: (range: { startR: number; endR: number; startC: number; endC: number }) => void;
   bulkActions?: BulkAction[];
@@ -49,7 +49,8 @@ interface DataTableProps {
 const DataRow = React.memo(({ 
   row, rIdx, selectable, selectedRowIds, activeCell, selectionRange, editingCell, editValue, 
   visibleColumns, columnWidths, isEditable, onCellChange, toggleRow, startEditing, handleCellMouseDown, 
-  handleCellMouseEnter, handleContextMenu, setEditValue, commitEdit, formatValue, getAlignment 
+  handleCellMouseEnter, handleContextMenu, setEditValue, commitEdit, formatValue, getAlignment,
+  inputRef
 }: any) => {
   const rowId = row.id || rIdx;
   const isSelected = selectedRowIds.has(rowId);
@@ -82,13 +83,19 @@ const DataRow = React.memo(({
             onMouseEnter={(e) => handleCellMouseEnter(e, rIdx, cIdx)}
             onDoubleClick={() => startEditing(rIdx, cIdx)}
             onContextMenu={(e) => handleContextMenu(e, rIdx, cIdx)}
-            className={`text-[0.6875rem] font-medium text-foreground/80 whitespace-nowrap select-none border-b border-r border-primary/5 ${getAlignment(col.type)} transition-all relative hover:bg-primary/10 hover:text-primary ${isInRange ? 'bg-primary/5 z-10' : ''} ${isActive ? 'ring-2 ring-inset ring-primary z-20 bg-white/90 shadow-hard-sm' : ''} ${!isActive && !isInRange ? 'group-hover:text-primary' : ''} ${col.type === 'currency' || col.type === 'number' ? 'font-mono tracking-tighter' : ''}`}
+            className={`whitespace-nowrap select-none border-b border-r border-primary/5 ${getAlignment(col.type)} transition-all relative hover:bg-primary/10 hover:text-primary ${isInRange ? 'bg-primary/5 z-10' : ''} ${isActive ? 'ring-2 ring-inset ring-primary z-20 bg-primary/10 shadow-inner' : ''} ${!isActive && !isInRange ? 'group-hover:text-primary' : ''} ${col.type === 'currency' || col.type === 'number' ? 'font-mono tracking-tighter' : ''}`}
             style={{ padding: 'var(--table-padding)', width: columnWidths[col.key] ? `${columnWidths[col.key]}px` : undefined, minWidth: columnWidths[col.key] ? `${columnWidths[col.key]}px` : undefined, maxWidth: columnWidths[col.key] ? `${columnWidths[col.key]}px` : undefined, overflow: 'hidden', textOverflow: 'ellipsis' }}
           >
             {isInRange && <div className={`absolute inset-0 pointer-events-none z-10 ${isTopEdge ? 'border-t-2 border-primary/20' : ''} ${isBottomEdge ? 'border-b-2 border-primary/20' : ''} ${isLeftEdge ? 'border-l-2 border-primary/20' : ''} ${isRightEdge ? 'border-r-2 border-primary/20' : ''}`} />}
             {isEditing ? (
-              <div className="absolute inset-0 z-30 p-0.5 bg-white/95 shadow-hard ring-2 ring-primary">
-                <input ref={inputRef as any} value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={commitEdit} className="w-full h-full px-2 py-0.5 bg-transparent border-none focus:ring-0 text-[0.625rem] font-black text-foreground uppercase" />
+              <div className="absolute inset-0 z-50 p-0 bg-white shadow-lg ring-2 ring-primary transition-all duration-200">
+                <input 
+                  ref={inputRef as any} 
+                  value={editValue} 
+                  onChange={(e) => setEditValue(e.target.value)} 
+                  onBlur={commitEdit} 
+                  className="w-full h-full px-3 py-1 bg-transparent border-none focus:ring-0 text-[0.75rem] font-black text-foreground uppercase" 
+                />
               </div>
             ) : (
               <span className="relative z-0">{formatValue(row[col.key], col.type)}</span>
@@ -447,7 +454,8 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(({
   const commitEdit = () => {
     if (editingCell && onCellChange) {
       const col = visibleColumns[editingCell.c];
-      onCellChange(editingCell.r, col.key, editValue);
+      const row = filteredAndSortedData[editingCell.r];
+      onCellChange(row, col.key, editValue);
     }
     setEditingCell(null);
   };
@@ -634,9 +642,17 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(({
             const { startR, endR, startC, endC } = selectionRange;
             const minR = Math.min(startR, endR), maxR = Math.max(startR, endR);
             const minC = Math.min(startC, endC), maxC = Math.max(startC, endC);
-            for (let i = minR; i <= maxR; i++) for (let j = minC; j <= maxC; j++) onCellChange(i, visibleColumns[j].key, '');
+            for (let i = minR; i <= maxR; i++) {
+              for (let j = minC; j <= maxC; j++) {
+                const row = filteredAndSortedData[i];
+                onCellChange(row, visibleColumns[j].key, '');
+              }
+            }
             toast.success(`Đã xóa dữ liệu trong ${ (maxR - minR + 1) * (maxC - minC + 1) } ô`);
-          } else onCellChange(r, visibleColumns[c].key, '');
+          } else {
+            const row = filteredAndSortedData[r];
+            onCellChange(row, visibleColumns[c].key, '');
+          }
         }
       } else if (e.ctrlKey && e.key === 'a') {
         e.preventDefault();
@@ -654,7 +670,10 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(({
               const cells = rowText.split('\t');
               cells.forEach((cellText, cOffset) => {
                 const targetR = r + rOffset, targetC = c + cOffset;
-                if (targetR < filteredAndSortedData.length && targetC < visibleColumns.length) onCellChange(targetR, visibleColumns[targetC].key, cellText.trim());
+                if (targetR < filteredAndSortedData.length && targetC < visibleColumns.length) {
+                  const row = filteredAndSortedData[targetR];
+                  onCellChange(row, visibleColumns[targetC].key, cellText.trim());
+                }
               });
             });
             toast.success('Đã dán dữ liệu');
@@ -748,15 +767,15 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(({
           className="flex-1 overflow-auto custom-scrollbar outline-none bg-transparent relative"
           onFocus={() => !activeCell && setActiveCell({ r: 0, c: 0 })}
         >
-          <table className={`w-full min-w-max border-collapse font-sans ${isSelecting ? 'select-none' : ''}`}>
-            <thead className="bg-white/75 backdrop-blur-md sticky top-0 z-30 shadow-[0_2px_10px_0_rgba(0,0,0,0.05)] font-display">
+          <table className={`min-w-max ${isSelecting ? 'select-none' : ''}`}>
+            <thead className="bg-white/75 backdrop-blur-md sticky top-0 z-30 shadow-[0_2px_10px_0_rgba(0,0,0,0.05)]">
               <tr>
                 {selectable && (
                   <th 
-                    className="text-[0.5625rem] font-bold uppercase tracking-widest text-foreground/40 bg-white/75 backdrop-blur-md sticky top-0 z-40 w-10 text-center border-b-2 border-primary/20"
+                    className="backdrop-blur-md z-40 w-10 border-b-2"
                     style={{ padding: 'var(--table-padding)' }}
                   >
-                    <button onClick={toggleAll} className="flex items-center justify-center hover:text-primary transition-colors mx-auto">
+                    <button onClick={toggleAll} className="flex items-center justify-center hover:text-primary/80 transition-colors mx-auto">
                       {selectedRowIds.size > 0 && selectedRowIds.size === filteredAndSortedData.length ? <CheckSquare className="w-3.5 h-3.5 text-primary" /> : <Square className="w-3.5 h-3.5" />}
                     </button>
                   </th>
@@ -769,10 +788,17 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(({
                       onMouseDown={(e) => handleHeaderMouseDown(e, cIdx)}
                       onMouseEnter={(e) => handleHeaderMouseEnter(e, cIdx)}
                       onContextMenu={(e) => handleContextMenu(e, -1, cIdx)}
-                      className={`text-[0.5625rem] font-bold uppercase tracking-widest bg-white/75 backdrop-blur-md sticky top-0 z-40 whitespace-nowrap hover:bg-secondary/20 transition-colors cursor-pointer select-none text-center border-b-2 border-r border-primary/20 group relative ${isColActive ? 'text-primary bg-primary/10' : 'text-foreground/40'}`}
-                      style={{ padding: 'var(--table-padding)', width: columnWidths[col.key] ? `${columnWidths[col.key]}px` : undefined, minWidth: columnWidths[col.key] ? `${columnWidths[col.key]}px` : undefined, maxWidth: columnWidths[col.key] ? `${columnWidths[col.key]}px` : undefined, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                      className={`backdrop-blur-md z-40 whitespace-nowrap hover:bg-secondary/80 transition-colors cursor-pointer select-none border-b-2 border-r group relative ${isColActive ? 'bg-primary/20' : ''}`}
+                      style={{ 
+                        padding: 'var(--table-padding)', 
+                        width: columnWidths[col.key] ? `${columnWidths[col.key]}px` : undefined, 
+                        minWidth: columnWidths[col.key] ? `${columnWidths[col.key]}px` : undefined, 
+                        maxWidth: columnWidths[col.key] ? `${columnWidths[col.key]}px` : undefined, 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis'
+                      }}
                     >
-                      <div className="flex items-center gap-1.5 justify-center">
+                      <div className="flex items-center gap-1.5 justify-center font-display">
                         <span>{col.label}</span>
                         {col.sortable !== false && (
                           <button onClick={(e) => { e.stopPropagation(); handleSort(col.key); }} className="hover:text-primary transition-colors">
@@ -806,7 +832,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(({
                   <DataRow 
                     key={row.id || rIdx}
                     row={row}
-                    rIdx={rIdx}
+                    rIdx={rIdx + (currentPage - 1) * itemsPerPage}
                     selectable={selectable}
                     selectedRowIds={selectedRowIds}
                     activeCell={activeCell}
@@ -826,6 +852,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(({
                     commitEdit={commitEdit}
                     formatValue={formatValue}
                     getAlignment={getAlignment}
+                    inputRef={inputRef}
                   />
                 ))
               )}
@@ -910,7 +937,8 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(({
               <button 
                 onClick={() => { 
                   if (onCellChange) {
-                    onCellChange(contextMenu.r, visibleColumns[contextMenu.c].key, '');
+                    const row = filteredAndSortedData[contextMenu.r];
+                    onCellChange(row, visibleColumns[contextMenu.c].key, '');
                     toast.success('Đã xóa dữ liệu ô');
                   }
                   closeContextMenu(); 
@@ -970,7 +998,8 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(({
                   const minC = Math.min(startC, endC), maxC = Math.max(startC, endC);
                   for (let i = minR; i <= maxR; i++) {
                     for (let j = minC; j <= maxC; j++) {
-                      onCellChange(i, visibleColumns[j].key, '');
+                      const row = filteredAndSortedData[i];
+                      onCellChange(row, visibleColumns[j].key, '');
                     }
                   }
                   toast.success(`Đã xóa dữ liệu trong ${ (maxR - minR + 1) * (maxC - minC + 1) } ô`);

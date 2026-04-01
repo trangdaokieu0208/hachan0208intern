@@ -1,36 +1,40 @@
 :root {
   --font-size: 16px;
-  --background: #F5F1E2; /* Cream/Off-white */
-  --foreground: #4A4A4A; /* Dark Gray/Brown */
+  --font-main: 'Inter', sans-serif;
+  --font-display: 'Bebas Neue', sans-serif;
+  --background: #fdf6f6; /* Very light pink */
+  --foreground: #8c7b7b; /* Muted mauve */
   --card: #ffffff;
-  --card-foreground: #4A4A4A;
+  --card-foreground: #8c7b7b;
   --popover: #ffffff;
-  --popover-foreground: #4A4A4A;
-  --primary: #E594A5; /* Soft Pink */
+  --popover-foreground: #8c7b7b;
+  --primary: #e5c1c5; /* Soft pink */
   --primary-foreground: #ffffff;
-  --secondary: #B8C1E1; /* Soft Purple */
-  --secondary-foreground: #4A4A4A;
-  --muted: #F8F4E8;
-  --muted-foreground: #8D6E63; /* Muted Brown */
-  --accent: #A5B8D8; /* Soft Blue */
+  --secondary: #f2dcdc; /* Lighter pink */
+  --secondary-foreground: #8c7b7b;
+  --muted: #fdf6f6;
+  --muted-foreground: #a89a9a;
+  --accent: #e5c1c5;
   --accent-foreground: #ffffff;
-  --border: #D1C4E9; /* Light Purple Border */
+  --border: #e5c1c5;
   --input: #ffffff;
-  --ring: #E594A5;
-  --radius: 16px;
+  --ring: #e5c1c5;
+  --radius: 24px; /* More rounded */
   --table-padding: 0.75rem;
   
-  --shadow-hard: 6px 6px 0px rgba(74, 74, 74, 0.1);
-  --shadow-hard-sm: 3px 3px 0px rgba(74, 74, 74, 0.1);
-  --primary-rgb: 229, 148, 165;
+  --shadow-hard: 0 4px 6px -1px rgba(229, 193, 197, 0.2), 0 2px 4px -1px rgba(229, 193, 197, 0.1);
+  --shadow-hard-sm: 0 2px 4px -1px rgba(229, 193, 197, 0.2);
+  --primary-rgb: 229, 193, 197;
   
   /* Brand Patterns */
-  --pattern-stripes-purple: repeating-linear-gradient(90deg, #B8C1E1 0, #B8C1E1 2px, transparent 2px, transparent 20px);
-  --pattern-stripes-green: repeating-linear-gradient(90deg, #829B66 0, #829B66 2px, transparent 2px, transparent 20px);
-  --pattern-stripes-brown: repeating-linear-gradient(90deg, #8D6E63 0, #8D6E63 4px, transparent 4px, transparent 20px);
+  --pattern-stripes-purple: repeating-linear-gradient(90deg, #f2dcdc 0, #f2dcdc 1px, transparent 1px, transparent 15px);
+  --pattern-stripes-green: repeating-linear-gradient(90deg, #e5c1c5 0, #e5c1c5 1px, transparent 1px, transparent 15px);
+  --pattern-stripes-brown: repeating-linear-gradient(90deg, #8c7b7b 0, #8c7b7b 1px, transparent 1px, transparent 15px);
 }
 
 @theme inline {
+  --font-sans: var(--font-main);
+  --font-display: var(--font-display);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -69,9 +73,27 @@
   }
 
   body {
-    @apply text-foreground;
+    @apply text-foreground antialiased;
     background-color: #ffffff;
     font-family: var(--font-main, 'Inter', sans-serif);
+  }
+
+  ::selection {
+    @apply bg-primary/30 text-foreground;
+  }
+
+  /* Custom Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-primary/20 rounded-full hover:bg-primary/40 transition-colors;
   }
 
   body::before, body::after {
@@ -95,16 +117,20 @@
   }
 
   .brutal-card {
-    @apply bg-white/65 backdrop-blur-2xl border border-primary/20 shadow-hard rounded-lg;
-    transition: background-color 0.3s ease, backdrop-filter 0.3s ease;
+    @apply bg-white/65 backdrop-blur-2xl border border-primary/20 shadow-hard rounded-lg overflow-hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .brutal-card:hover {
+    @apply border-primary/40 shadow-[8px_8px_0px_rgba(74,74,74,0.1)];
   }
 
   .brutal-btn {
-    @apply bg-white/75 border border-primary/30 shadow-hard-sm rounded-md px-2 py-0.5 font-bold transition-all active:translate-x-[1px] active:translate-y-[1px] active:shadow-none hover:bg-white/85;
+    @apply bg-white/75 border border-primary/30 shadow-hard-sm rounded-md px-3 py-1 font-bold transition-all active:translate-x-[1px] active:translate-y-[1px] active:shadow-none hover:bg-white/85 hover:border-primary/50 hover:shadow-hard;
   }
 
   .brutal-input {
-    @apply bg-white/70 border border-primary/30 rounded-md px-2 py-0.5 font-semibold outline-none focus:shadow-hard-sm focus:bg-white/85 transition-all;
+    @apply bg-white/70 border border-primary/30 rounded-md px-3 py-1 font-semibold outline-none focus:shadow-hard-sm focus:bg-white/85 focus:border-primary transition-all;
   }
 
   table {
@@ -112,19 +138,21 @@
   }
 
   th {
-    @apply bg-secondary/60 text-foreground text-[0.625rem] font-bold uppercase border border-primary/20 text-center sticky top-0 z-10 tracking-widest;
+    @apply bg-secondary/60 text-[0.625rem] font-black uppercase border border-primary/20 text-center sticky top-0 z-10 tracking-[0.15em];
     padding: var(--table-padding, 0.75rem);
     background-image: var(--header-bg-image);
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
     font-family: var(--font-display, "Space Grotesk", sans-serif);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+    color: var(--header-title-color, #4a3f3f);
   }
 
   td {
-    @apply bg-white/55 text-foreground text-[0.8125rem] font-medium border border-primary/10 transition-all hover:bg-white/70;
+    @apply bg-white/55 text-foreground text-[0.8125rem] font-semibold border border-primary/10 transition-all hover:bg-white/70;
     padding: var(--table-padding, 0.75rem);
-    font-family: var(--font-sans, 'Inter', sans-serif);
+    font-family: var(--font-main, 'Inter', sans-serif);
   }
 
   /* Monospace for numeric data in tables */

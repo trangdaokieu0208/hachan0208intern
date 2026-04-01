@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '../components/ui/dialog';
+} from '@/src/app/components/ui/dialog';
 import { Button } from '../components/ui/button';
 import {
   DropdownMenu,
@@ -661,7 +661,7 @@ export function AEDataConfig() {
               <FileSpreadsheet className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-primary tracking-tight uppercase leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Dữ liệu From AE</h2>
+              <h2 className="text-xl font-black text-primary tracking-tight uppercase leading-tight">Dữ liệu From AE</h2>
               <p className="text-[0.625rem] font-bold text-primary/40 uppercase tracking-widest">Quản lý file dữ liệu AE • {appData.Sheet1_AE.data.length} Bản ghi</p>
             </div>
           </div>
@@ -782,28 +782,28 @@ export function AEDataConfig() {
 
         <div className="flex-1 overflow-auto custom-scrollbar p-2">
           <div className="border-2 border-slate-900/10 rounded-lg overflow-hidden shadow-hard-md bg-white/65 backdrop-blur-2xl h-full">
-            <table className="w-full border-collapse">
+            <table>
               <thead className="sticky top-0 z-20 bg-secondary/60 backdrop-blur-lg">
                 <tr>
-                  <th className="w-10 py-2 text-[0.5625rem] font-black uppercase tracking-widest border-b-2 border-primary/10 border-r border-primary/5 text-primary/60 whitespace-nowrap">No</th>
-                  <th className="py-2 text-[0.5625rem] font-black uppercase tracking-widest border-b-2 border-primary/10 border-r border-primary/5 text-primary/60 whitespace-nowrap">TÊN FILE</th>
-                  <th className="w-24 py-2 text-[0.5625rem] font-black uppercase tracking-widest border-b-2 border-primary/10 border-r border-primary/5 text-primary/60 whitespace-nowrap">BANK</th>
-                  <th className="w-20 py-2 text-[0.5625rem] font-black uppercase tracking-widest border-b-2 border-primary/10 border-r border-primary/5 text-primary/60 whitespace-nowrap">THÁNG</th>
-                  <th className="py-2 text-[0.5625rem] font-black uppercase tracking-widest border-b-2 border-primary/10 border-r border-primary/5 text-primary/60 whitespace-nowrap">NGUỒN</th>
-                  <th className="w-32 py-2 text-[0.5625rem] font-black uppercase tracking-widest border-b-2 border-primary/10 border-r border-primary/5 text-primary/60 whitespace-nowrap">TRẠNG THÁI</th>
-                  <th className="w-12 py-2 text-[0.5625rem] font-black uppercase tracking-widest text-primary/60 whitespace-nowrap">XÓA</th>
+                  <th className="w-10">No</th>
+                  <th>TÊN FILE</th>
+                  <th className="w-24">BANK</th>
+                  <th className="w-20">THÁNG</th>
+                  <th>NGUỒN</th>
+                  <th className="w-32">TRẠNG THÁI</th>
+                  <th className="w-12">XÓA</th>
                 </tr>
               </thead>
               <tbody className="border-primary/5">
                 {paginatedData.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-32 text-center text-primary/20 border-b border-primary/5">
+                    <td colSpan={7} className="px-6 py-32 text-center text-primary/20">
                       <div className="flex flex-col items-center gap-6">
                         <div className="w-24 h-24 bg-secondary/10 rounded-full flex items-center justify-center border-2 border-dashed border-primary/10">
                           <FileSpreadsheet className="w-12 h-12 text-primary/10" />
                         </div>
                         <div className="space-y-2">
-                          <p className="font-black uppercase text-lg tracking-tight text-primary" style={{ fontFamily: "'Playfair Display', serif" }}>Chưa có file From AE</p>
+                          <p className="font-black uppercase text-lg tracking-tight text-primary">Chưa có file From AE</p>
                           <p className="text-[0.625rem] font-bold uppercase opacity-60 tracking-widest">Thêm dòng hoặc upload file để bắt đầu</p>
                         </div>
                       </div>
@@ -816,42 +816,42 @@ export function AEDataConfig() {
                       variants={itemVariants}
                       className="group hover:bg-secondary/5 transition-colors"
                     >
-                      <td className="px-3 py-2 text-center border-r border-primary/5 text-[0.625rem] font-black text-primary/30 border-b border-primary/5">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
-                      <td className="px-4 py-2 border-r border-primary/5 border-b border-primary/5">
+                      <td className="text-center">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
+                      <td>
                         <input
                           type="text"
                           value={row.name}
                           onChange={(e) => updateRow(row.id, 'name', e.target.value)}
                           placeholder="Tên file..."
-                          className="w-full bg-transparent border-none focus:ring-0 text-[0.6875rem] font-bold text-primary placeholder:text-primary/20 p-0"
+                          className="w-full bg-transparent border-none focus:ring-0 text-[0.6875rem] font-bold text-foreground placeholder:text-foreground/20 p-0"
                         />
                       </td>
-                      <td className="px-3 py-2 border-r border-primary/5 border-b border-primary/5">
+                      <td>
                         <select
                           value={row.bank || ''}
                           onChange={(e) => updateRow(row.id, 'bank', e.target.value)}
-                          className="w-full bg-transparent border-none focus:ring-0 text-[0.6875rem] font-black text-primary text-center p-0 uppercase cursor-pointer appearance-none"
+                          className="w-full bg-transparent border-none focus:ring-0 text-[0.6875rem] font-black text-foreground text-center p-0 uppercase cursor-pointer appearance-none"
                         >
-                          <option value="" className="text-primary/40">Chọn Bank...</option>
+                          <option value="" className="text-foreground/40">Chọn Bank...</option>
                           <option value="North">North</option>
                           <option value="Thanh Hoa">Thanh Hoa</option>
                           <option value="Phu Tho">Phu Tho</option>
                           <option value="Thai Nguyen">Thai Nguyen</option>
                         </select>
                       </td>
-                      <td className="px-3 py-2 border-r border-primary/5 border-b border-primary/5">
+                      <td>
                         <select
                           value={row.month || ''}
                           onChange={(e) => updateRow(row.id, 'month', e.target.value)}
-                          className="w-full bg-transparent border-none focus:ring-0 text-[0.6875rem] font-black text-primary text-center p-0 uppercase cursor-pointer appearance-none"
+                          className="w-full bg-transparent border-none focus:ring-0 text-[0.6875rem] font-black text-foreground text-center p-0 uppercase cursor-pointer appearance-none"
                         >
-                          <option value="" className="text-primary/40">Chọn Tháng...</option>
+                          <option value="" className="text-foreground/40">Chọn Tháng...</option>
                           {['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'].map(m => (
                             <option key={m} value={`${m} 2026`}>{m} 2026</option>
                           ))}
                         </select>
                       </td>
-                      <td className="px-4 py-2 border-r border-primary/5 border-b border-primary/5">
+                      <td>
                         <div className="flex items-center gap-2">
                           <input
                             type="file"
@@ -870,7 +870,7 @@ export function AEDataConfig() {
                           {row.fileObj && <span className="text-[0.5625rem] font-bold text-primary/40 truncate max-w-[100px] uppercase">{row.fileObj.name}</span>}
                         </div>
                       </td>
-                      <td className="px-4 py-2 border-r border-primary/5 border-b border-primary/5">
+                      <td>
                         <div className="flex items-center gap-2">
                           <div className={`w-2 h-2 rounded-full ${
                             row.status === 'Success' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' :
@@ -885,7 +885,7 @@ export function AEDataConfig() {
                           }`}>{row.status}</span>
                         </div>
                       </td>
-                      <td className="px-2 py-2 text-center border-r border-primary/5 border-b border-primary/5">
+                      <td className="text-center">
                         <button
                           onClick={() => deleteRow(row.id)}
                           className="p-1.5 text-primary/10 hover:text-rose-400 hover:bg-rose-50 rounded-lg transition-all"
@@ -963,18 +963,18 @@ export function AEDataConfig() {
           </DialogHeader>
           
           <div className="flex-1 overflow-auto custom-scrollbar my-4 border-2 border-primary/10 rounded-xl">
-            <table className="w-full text-left border-collapse">
+            <table className="text-left">
               <thead className="sticky top-0 bg-secondary/10 z-10">
                 <tr className="border-b-2 border-primary/10">
-                  <th className="px-4 py-2 text-[0.625rem] font-black uppercase tracking-widest text-primary/60">Tên File</th>
-                  <th className="px-4 py-2 text-[0.625rem] font-black uppercase tracking-widest text-primary/60">Hành động</th>
+                  <th>Tên File</th>
+                  <th>Hành động</th>
                 </tr>
               </thead>
               <tbody className="divide-y border-primary/5">
                 {choices.map((choice, idx) => (
                   <tr key={idx} className="hover:bg-secondary/5">
-                    <td className="px-4 py-3 text-[0.6875rem] font-bold text-primary truncate max-w-[300px]">{choice.file.name}</td>
-                    <td className="px-4 py-3">
+                    <td className="truncate max-w-[300px]">{choice.file.name}</td>
+                    <td>
                       <div className="flex items-center gap-2">
                         <select 
                           value={choice.action}

@@ -28,13 +28,13 @@ export function Navbar({ onOpenSettings }: NavbarProps) {
             <Link
               key={item.id}
               to={item.path}
-              className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[0.625rem] font-black uppercase tracking-[0.15em] transition-all duration-300 whitespace-nowrap group border-2 ${
+              className={`relative flex items-center gap-2 px-4 py-2 rounded-2xl text-[0.6875rem] font-bold uppercase tracking-widest transition-all duration-300 whitespace-nowrap group ${
                 isActive
-                  ? 'text-foreground bg-primary border-border shadow-hard-sm translate-y-[-1px]'
-                  : 'text-foreground/60 border-transparent hover:text-foreground hover:bg-foreground/5'
+                  ? 'text-primary bg-secondary/50 shadow-sm'
+                  : 'text-muted-foreground hover:text-primary hover:bg-secondary/30'
               }`}
             >
-              <item.icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-foreground' : 'text-primary/70 group-hover:text-primary'}`} />
+              <item.icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
               {item.label}
             </Link>
           );
@@ -42,12 +42,12 @@ export function Navbar({ onOpenSettings }: NavbarProps) {
       </nav>
 
       {/* Right Actions */}
-      <div className="flex items-center gap-2 bg-white/10 backdrop-blur-2xl border-2 border-border/10 rounded-xl p-0.5 shadow-sm">
-        <button className="p-1.5 text-foreground/40 hover:text-primary transition-all">
+      <div className="flex items-center gap-2 bg-white/50 backdrop-blur-md border border-primary/10 rounded-2xl p-1 shadow-sm">
+        <button className="p-2 text-muted-foreground hover:text-primary transition-all">
           <Bell className="w-4 h-4" />
         </button>
-        <div className="h-7 w-7 bg-foreground rounded-lg flex items-center justify-center text-primary border-2 border-border/20 shadow-hard-sm cursor-pointer hover:scale-105 transition-transform">
-          <User className="w-3.5 h-3.5" />
+        <div className="h-8 w-8 bg-primary/20 rounded-full flex items-center justify-center text-primary border border-primary/20 cursor-pointer hover:scale-105 transition-transform">
+          <User className="w-4 h-4" />
         </div>
       </div>
     </div>

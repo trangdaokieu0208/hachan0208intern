@@ -34,7 +34,7 @@ export function ConfirmDialog({
     <AlertDialog open={isOpen} onOpenChange={onClose}>
       <AlertDialogContent className="rounded-none border-2 border-black bg-white/90 backdrop-blur-md shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
         <AlertDialogHeader>
-          <AlertDialogTitle className="text-xl font-black text-black uppercase tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+          <AlertDialogTitle className="text-xl font-black text-black uppercase tracking-tight">
             {title}
           </AlertDialogTitle>
           <AlertDialogDescription className="text-black/80 font-bold">

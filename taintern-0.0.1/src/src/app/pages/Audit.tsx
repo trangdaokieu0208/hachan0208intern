@@ -192,10 +192,12 @@ export function Audit() {
     });
   }, [activeData.headers]);
 
-  const handleCellChange = (rowIndex: number, colKey: string, value: any) => {
+  const handleCellChange = (row: any, colKey: string, value: any) => {
     updateAppData(prev => {
       const targetTab = currentSubTab === 'AuditReport' ? 'AuditReport' : (currentSubTab === 'AuditSource1' ? src1 : src2);
       const newData = [...(prev as any)[targetTab].data];
+      const rowIndex = newData.indexOf(row);
+      if (rowIndex === -1) return prev;
       newData[rowIndex] = { ...newData[rowIndex], [colKey]: value };
       return { ...prev, [targetTab]: { ...(prev as any)[targetTab], data: newData } };
     });
@@ -226,7 +228,7 @@ export function Audit() {
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-primary tracking-tight uppercase leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Đối soát dữ liệu</h2>
+              <h2 className="text-xl font-black text-primary tracking-tight uppercase leading-tight">Đối soát dữ liệu</h2>
               <p className="text-[0.625rem] font-bold text-primary/40 uppercase tracking-widest">Kiểm soát tài chính & Đối chiếu dữ liệu • {activeData.data.length} Bản ghi</p>
             </div>
           </div>
@@ -391,7 +393,7 @@ export function Audit() {
                   <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center shadow-sm mb-6">
                     <Search className="w-10 h-10 text-[#e086a3]/40" />
                   </div>
-                  <p className="font-black uppercase text-[1.125rem] tracking-tight text-[#e086a3]/60" style={{ fontFamily: "'Playfair Display', serif" }}>Không tìm thấy dữ liệu</p>
+                  <p className="font-black uppercase text-[1.125rem] tracking-tight text-[#e086a3]/60">Không tìm thấy dữ liệu</p>
                   <p className="text-[0.5625rem] font-bold uppercase opacity-40 tracking-widest mt-1">Thử thay đổi bộ lọc hoặc từ khóa</p>
                 </div>
               ) : (

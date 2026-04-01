@@ -88,20 +88,20 @@ export function LeftSidebar({ isCollapsed, onToggle, onOpenSettings }: SidebarPr
       </nav>
 
       {/* Settings Button at Bottom */}
-      <div className="mt-auto p-6 w-full flex flex-col gap-3">
+      <div className="mt-auto p-4 w-full flex flex-col gap-2 border-t-2 border-primary/10 bg-white/10">
         <button
           onClick={onOpenSettings}
-          className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200 group w-full border-2 text-foreground/50 border-transparent hover:bg-foreground/5 hover:text-foreground/70 ${isCollapsed ? 'justify-center' : 'justify-start'}`}
+          className={`flex items-center gap-3 brutal-btn bg-primary text-white p-3.5 transition-all duration-200 group w-full ${isCollapsed ? 'justify-center' : 'justify-start'}`}
         >
-          <Settings className="w-4 h-4 shrink-0 text-foreground/30 group-hover:text-foreground/40" />
-          {!isCollapsed && <p className="text-[0.6875rem] font-black tracking-tight truncate">Settings</p>}
+          <Settings className="w-5 h-5 shrink-0 group-hover:rotate-90 transition-transform duration-500" />
+          {!isCollapsed && <p className="text-[0.6875rem] font-black uppercase tracking-[0.2em] truncate">Cài đặt</p>}
         </button>
         <button
           onClick={() => window.location.reload()}
-          className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200 group w-full border-2 text-foreground/50 border-transparent hover:bg-foreground/5 hover:text-foreground/70 ${isCollapsed ? 'justify-center' : 'justify-start'}`}
+          className={`flex items-center gap-3 brutal-btn bg-white text-primary p-3.5 transition-all duration-200 group w-full ${isCollapsed ? 'justify-center' : 'justify-start'}`}
         >
-          <RefreshCw className="w-4 h-4 shrink-0 text-foreground/30 group-hover:text-foreground/40" />
-          {!isCollapsed && <p className="text-[0.6875rem] font-black tracking-tight truncate">Refresh</p>}
+          <RefreshCw className="w-5 h-5 shrink-0 group-hover:rotate-180 transition-transform duration-500" />
+          {!isCollapsed && <p className="text-[0.6875rem] font-black uppercase tracking-[0.2em] truncate">Làm mới</p>}
         </button>
       </div>
     </motion.div>

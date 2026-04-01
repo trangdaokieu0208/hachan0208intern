@@ -65,8 +65,8 @@ export function DashboardCharts() {
         
         <div className="flex items-center justify-between mb-8 relative z-10">
           <div>
-            <h3 className="text-2xl font-normal text-slate-900 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
-              Top <span className="italic">Centers</span>
+            <h3 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">
+              Top <span className="italic text-primary">Centers</span>
             </h3>
             <p className="text-[0.625rem] font-black uppercase tracking-[0.2em] text-slate-400 mt-1">Payroll Distribution by Mã AE</p>
           </div>
@@ -129,8 +129,8 @@ export function DashboardCharts() {
 
         <div className="flex items-center justify-between mb-8 relative z-10">
           <div>
-            <h3 className="text-2xl font-normal text-slate-900 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
-              Business <span className="italic">Mix</span>
+            <h3 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">
+              Business <span className="italic text-primary">Mix</span>
             </h3>
             <p className="text-[0.625rem] font-black uppercase tracking-[0.2em] text-slate-400 mt-1">Revenue Stream Allocation</p>
           </div>

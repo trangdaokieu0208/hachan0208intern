@@ -37,7 +37,7 @@ export function StatCard({ title, value, icon: Icon, iconColor, iconBgColor, sub
         
         <div className="space-y-0.5">
           <p className="text-[0.5625rem] font-bold uppercase text-slate-400 tracking-widest">{subtitle || 'Statistics'}</p>
-          <div className="text-xl font-normal text-slate-900 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <div className="text-xl font-normal text-slate-900 tracking-tight">
             {value}
           </div>
         </div>

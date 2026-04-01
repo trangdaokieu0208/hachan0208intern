@@ -18,6 +18,7 @@ interface UiSettings {
   radius: string;
   titleAlign: string;
   headerTitleColor?: string;
+  headerFont?: string;
   // Functional Settings
   darkMode?: boolean;
   autoSave?: boolean;
@@ -39,6 +40,7 @@ const defaultSettings: UiSettings = {
   radius: '16px',
   titleAlign: 'flex-start|left',
   headerTitleColor: '#4A4A4A',
+  headerFont: "'Bebas Neue', sans-serif",
   darkMode: false,
   autoSave: true,
   showHelp: true
@@ -164,6 +166,7 @@ export function UiSettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose:
       root.style.setProperty('--shadow-hard-sm', `2px 2px 0px ${settings.border}`);
     }
     if (settings.font) root.style.setProperty('--font-main', settings.font);
+    if (settings.headerFont) root.style.setProperty('--font-display', settings.headerFont);
     if (settings.fontSize) root.style.setProperty('--font-size', settings.fontSize);
     if (settings.tablePadding) root.style.setProperty('--table-padding', settings.tablePadding);
     if (settings.radius) root.style.setProperty('--radius', settings.radius);
@@ -212,6 +215,7 @@ export function UiSettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose:
     root.style.removeProperty('--shadow-hard');
     root.style.removeProperty('--shadow-hard-sm');
     root.style.removeProperty('--font-main');
+    root.style.removeProperty('--font-display');
     root.style.removeProperty('--font-size');
     root.style.removeProperty('--table-padding');
     root.style.removeProperty('--radius');
@@ -342,13 +346,22 @@ export function UiSettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose:
         <div className="flex flex-col gap-3">
           <h4 className="font-black text-xs text-primary/50 tracking-widest uppercase border-b-2 border-primary/10 pb-1">2. FONT CHỮ & HIỂN THỊ</h4>
           <div className="flex flex-col gap-1">
-            <label className="font-bold text-[0.8125rem]">Font chữ hệ thống</label>
+            <label className="font-bold text-[0.8125rem]">Font chữ hệ thống (Body Font)</label>
             <select value={settings.font} onChange={e => setSettings({...settings, font: e.target.value})} className="w-full border-2 border-primary rounded-lg p-2 font-bold text-sm outline-none focus:shadow-hard-sm transition-all bg-white">
               <option value="'Nunito', sans-serif">Nunito (Mềm mại)</option>
               <option value="'Inter', sans-serif">Inter (Chuyên nghiệp)</option>
               <option value="'Roboto', sans-serif">Roboto (Cổ điển)</option>
               <option value="'Montserrat', sans-serif">Montserrat (Đậm nét)</option>
               <option value="'Quicksand', sans-serif">Quicksand (Tròn trịa)</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="font-bold text-[0.8125rem]">Font chữ Tiêu đề (Header Font)</label>
+            <select value={settings.headerFont || "'Bebas Neue', sans-serif"} onChange={e => setSettings({...settings, headerFont: e.target.value})} className="w-full border-2 border-primary rounded-lg p-2 font-bold text-sm outline-none focus:shadow-hard-sm transition-all bg-white">
+              <option value="'Bebas Neue', sans-serif">Bebas Neue (Hẹp, Đậm)</option>
+              <option value="'Space Grotesk', sans-serif">Space Grotesk (Hiện đại)</option>
+              <option value="'Montserrat', sans-serif">Montserrat (Đậm nét)</option>
+              <option value="'Inter', sans-serif">Inter (Chuyên nghiệp)</option>
             </select>
           </div>
           <div className="flex flex-col gap-1">

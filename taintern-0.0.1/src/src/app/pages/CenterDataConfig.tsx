@@ -159,7 +159,7 @@ export function CenterDataConfig() {
     if (!files) return;
     
     const unmatched: File[] = [];
-    const allowedExtensions = ['.xlsx', '.xls'];
+    const allowedExtensions = ['.xlsx', '.xls', '.gsheet'];
     const maxSize = 10 * 1024 * 1024; // 10MB
 
     updateAppData(prev => {
@@ -539,61 +539,61 @@ export function CenterDataConfig() {
                   <DropdownMenuSeparator className="bg-black/10 mx-1" />
                 </DropdownMenuContent>
               </DropdownMenu>
-              <input type="file" id="multi-center-upload" multiple className="hidden" accept=".xlsx, .xls" onChange={handleMultiUpload} ref={fileInputRef} />
+              <input type="file" id="multi-center-upload" multiple className="hidden" accept=".xlsx, .xls, .gsheet" onChange={handleMultiUpload} ref={fileInputRef} />
               <span className="bg-white border border-black text-black text-xs font-bold px-2 py-1 rounded-lg">{appData.Fr_InputList.length} Centers</span>
           </div>
       </div>
       <div className="bg-white/65 backdrop-blur-2xl border-2 border-slate-900/10 rounded-2xl overflow-hidden shadow-[4px_4px_0px_#000] flex-1 flex flex-col min-h-0">
           <div className="overflow-auto flex-1 custom-scrollbar">
-              <table className="w-full text-left border-collapse font-sans">
+              <table className="text-left">
                   <thead className="bg-secondary/60 backdrop-blur-lg sticky top-0 z-20">
                       <tr>
-                          <th style={{ width: '60px' }} className="p-3 text-xs font-bold text-black uppercase border-b-2 border-black text-center">STT</th>
-                          <th style={{ width: '180px' }} className="p-3 text-xs font-bold text-black uppercase border-b-2 border-black text-center">L07</th>
-                          <th style={{ width: '150px' }} className="p-3 text-xs font-bold text-black uppercase border-b-2 border-black text-center">Mã AE</th>
-                          <th style={{ width: '120px' }} className="p-3 text-xs font-bold text-black uppercase border-b-2 border-black text-center">Business</th>
-                          <th style={{ width: '400px' }} className="p-3 text-xs font-bold text-black uppercase border-b-2 border-black text-center">File / Link Dữ Liệu</th>
-                          <th style={{ width: '140px' }} className="p-3 text-xs font-bold text-black uppercase border-b-2 border-black text-center">Trạng thái</th>
-                          <th style={{ width: '90px' }} className="p-3 text-xs font-bold text-black uppercase border-b-2 border-black text-center">Actions</th>
+                          <th style={{ width: '60px' }}>STT</th>
+                          <th style={{ width: '180px' }}>L07</th>
+                          <th style={{ width: '150px' }}>Mã AE</th>
+                          <th style={{ width: '120px' }}>Business</th>
+                          <th style={{ width: '400px' }}>File / Link Dữ Liệu</th>
+                          <th style={{ width: '140px' }}>Trạng thái</th>
+                          <th style={{ width: '90px' }}>Actions</th>
                       </tr>
                   </thead>
-                  <tbody className="text-sm text-black">
+                  <tbody>
                       {appData.Fr_InputList.map((item, index) => (
-                          <tr key={item.id} className={`transition-colors border-b border-gray-100 ${index % 2 === 1 ? 'bg-white/55' : 'bg-white/55'}`}>
-                              <td className="p-3 text-center text-black font-medium text-sm whitespace-nowrap">{index + 1}</td>
-                              <td className="p-3">
+                          <tr key={item.id}>
+                              <td className="text-center">{index + 1}</td>
+                              <td>
                                   <input 
                                     type="text" 
                                     value={item.l07} 
                                     onChange={(e) => updateRow(item.id, 'l07', e.target.value)} 
-                                    className="w-full font-medium text-black text-sm whitespace-nowrap outline-none focus:bg-indigo-50 px-1 py-1 rounded transition-colors bg-transparent border-none focus:ring-0" 
+                                    className="w-full font-medium text-foreground text-sm whitespace-nowrap outline-none focus:bg-primary/10 px-1 py-1 rounded transition-colors bg-transparent border-none focus:ring-0" 
                                     placeholder="L07"
                                   />
                               </td>
-                              <td className="p-3">
+                              <td>
                                   <input 
                                     type="text" 
                                     value={item.aeCode} 
                                     onChange={(e) => updateRow(item.id, 'aeCode', e.target.value)} 
-                                    className="w-full font-medium text-black text-sm whitespace-nowrap outline-none focus:bg-indigo-50 px-1 py-1 rounded transition-colors bg-transparent border-none focus:ring-0" 
+                                    className="w-full font-medium text-foreground text-sm whitespace-nowrap outline-none focus:bg-primary/10 px-1 py-1 rounded transition-colors bg-transparent border-none focus:ring-0" 
                                     placeholder="Mã AE"
                                   />
                               </td>
-                              <td className="p-3">
+                              <td>
                                   <input 
                                     type="text" 
                                     value={item.bus} 
                                     onChange={(e) => updateRow(item.id, 'bus', e.target.value)} 
-                                    className="w-full font-medium text-black text-sm whitespace-nowrap outline-none focus:bg-indigo-50 px-1 py-1 rounded transition-colors bg-transparent border-none focus:ring-0" 
+                                    className="w-full font-medium text-foreground text-sm whitespace-nowrap outline-none focus:bg-primary/10 px-1 py-1 rounded transition-colors bg-transparent border-none focus:ring-0" 
                                     placeholder="Business"
                                   />
                               </td>
-                              <td className="p-3">
+                              <td>
                                   <div className="flex items-center gap-3">
                                       <label className="cursor-pointer bg-white border-2 border-black hover:bg-gray-100 text-black px-3 py-1.5 rounded-lg text-[0.625rem] font-medium transition-all shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none shrink-0">
                                           <UploadCloud className="w-3 h-3" />
                                           <span>UPLOAD</span>
-                                          <input type="file" className="hidden" accept=".xlsx, .xls" onChange={(e) => {
+                                          <input type="file" className="hidden" accept=".xlsx, .xls, .gsheet" onChange={(e) => {
                                               if (e.target.files?.[0]) handleFileUpload(item.id, e.target.files[0]);
                                           }} />
                                       </label>
@@ -610,7 +610,7 @@ export function CenterDataConfig() {
                                       </div>
                                   )}
                               </td>
-                              <td className="p-3 text-center">
+                              <td className="text-center">
                                   <div className="flex items-center justify-center">
                                       {(item.status === 'ready' || item.status === 'Uploaded' || item.status === 'Success' || item.fileObj) ? (
                                           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-50 border-2 border-green-200 text-green-600 text-[0.625rem] font-medium uppercase tracking-wider whitespace-nowrap">
@@ -623,7 +623,7 @@ export function CenterDataConfig() {
                                       )}
                                   </div>
                               </td>
-                              <td className="p-3 text-center">
+                              <td className="text-center">
                                   <button onClick={() => deleteRow(item.id)} 
                                       className="w-8 h-8 rounded-lg border-2 border-black bg-white hover:bg-rose-50 text-rose-600 shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all flex items-center justify-center mx-auto">
                                       <Trash2 className="w-4 h-4" />
