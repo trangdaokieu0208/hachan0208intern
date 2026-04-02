@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx';
 import { useAppData } from '../lib/AppDataContext';
 import { DEFAULT_CENTERS } from '../constants';
 import { getL07FromFileName, getCenterInfoByL07 } from '../lib/center-utils';
-import { parseMoneyToNumber } from '../lib/data-utils';
+import { parseMoneyToNumber, isMoneyColumn, findColumnMapping, COMMON_FIELD_ALIASES } from '../lib/data-utils';
 import { ContextMenu } from '../components/ContextMenu';
 import { toast } from 'sonner';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../components/ui/tooltip';
@@ -19,6 +19,7 @@ import {
 } from '../components/ui/dropdown-menu';
 
 import { Button } from '../components/ui/button';
+import { ColumnMappingDialog } from '../components/ColumnMappingDialog';
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,7 @@ interface CenterRow {
   fileObj?: File | null;
   cachedData?: any[];
   lastProcessedUrl?: string;
+  columnMapping?: Record<string, string>;
 }
 
 const containerVariants = {
@@ -154,13 +156,36 @@ export function CenterDataConfig() {
   const [currentUnmatchedFile, setCurrentUnmatchedFile] = useState<File | null>(null);
   const [manualL07, setManualL07] = useState('');
 
+  const [mappingDialogOpen, setMappingDialogOpen] = useState(false);
+  const [mappingTargetRow, setMappingTargetRow] = useState<CenterRow | null>(null);
+
+  const centerTargetFields = [
+    "ID Number", "Full name", "Salary Scale", "From", "To",
+    "Bank Account Number", "Bank Name", "CITAD code", "TAX CODE",
+    "Contract No", "CHARGE TO LXO", "CHARGE TO EC", "CHARGE TO PT-DEMO",
+    "Charge MKT Local", "Charge Renewal Projects", "Charge Discovery Camp",
+    "Charge Summer Outing", "TOTAL PAYMENT"
+  ];
+
+  const openMappingDialog = (row: CenterRow) => {
+    setMappingTargetRow(row);
+    setMappingDialogOpen(true);
+  };
+
+  const handleSaveMapping = (mapping: Record<string, string>) => {
+    if (mappingTargetRow) {
+      updateRow(mappingTargetRow.id, 'columnMapping', mapping);
+      toast.success(`Đã lưu mapping cho ${mappingTargetRow.l07 || mappingTargetRow.url}`);
+    }
+  };
+
   const handleMultiUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
     
     const unmatched: File[] = [];
     const allowedExtensions = ['.xlsx', '.xls', '.gsheet'];
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 100 * 1024 * 1024; // 100MB
 
     updateAppData(prev => {
       const newList = [...prev.Fr_InputList];
@@ -172,7 +197,7 @@ export function CenterDataConfig() {
           return;
         }
         if (file.size > maxSize) {
-          toast.error(`File quá lớn: ${file.name}. Vui lòng tải lên file nhỏ hơn 10MB.`);
+          toast.error(`File quá lớn: ${file.name}. Vui lòng tải lên file nhỏ hơn 100MB.`);
           return;
         }
 
@@ -335,105 +360,156 @@ export function CenterDataConfig() {
             throw new Error("Không có file hoặc URL hợp lệ.");
           }
 
+          // Optimized: Only process relevant sheets
+          const relevantSheets = wb.SheetNames.filter((name, index) => {
+            const n = name.toUpperCase();
+            return n === "Q_STAFF" || n === "Q_SALARY_SCALE" || 
+                   n === "Q_ROSTER" || n === "TIMESHEET" || 
+                   n.includes("COST") || n.includes("PAYROLL") || 
+                   n.includes("SHEET") || n.includes("BANK") || 
+                   n.includes("HOLD") || index === 0;
+          });
+
+          let dataRows: any[] = [];
+          let foundAnySheet = false;
+
           // Xử lý từng sheet trong file
-          wb.SheetNames.forEach(sheetName => {
-            const ws = wb.Sheets[sheetName];
-            const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: false });
-            if (rows.length === 0) return;
+          relevantSheets.forEach(sheetName => {
+            try {
+              const nameUpper = sheetName.toUpperCase();
+              const ws = wb.Sheets[sheetName];
+              if (!ws) return;
+              
+              const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: true });
+              if (rows.length === 0) return;
 
-            // Chuyển array of arrays thành array of objects
-            const headers = rows[0] as string[];
-            const dataObjects = rows.slice(1).map(row => {
-              const obj: any = {};
-              headers.forEach((header, index) => {
-                obj[header] = row[index];
-              });
-              // Thêm thông tin file gốc
-              obj._sourceFile = item.fileObj?.name || item.url || "Unknown";
-              return obj;
-            });
+              // 1. Metadata sheets
+              if (nameUpper === "Q_STAFF" || nameUpper === "Q_SALARY_SCALE" || nameUpper === "Q_ROSTER" || nameUpper === "TIMESHEET") {
+                const headers = rows[0] as string[];
+                const dataObjects = rows.slice(1).map(row => {
+                  const obj: any = {};
+                  headers.forEach((header, index) => {
+                    obj[header] = row[index];
+                  });
+                  // Thêm thông tin file gốc
+                  obj._sourceFile = item.fileObj?.name || item.url || "Unknown";
+                  return obj;
+                });
 
-            // Phân loại dữ liệu dựa trên tên sheet chính xác
-            if (sheetName === "Q_Staff") {
-              updateAppData(prev => ({ ...prev, Q_Staff: [...(prev.Q_Staff || []), ...dataObjects] }));
-            } else if (sheetName === "Q_Salary_Scale") {
-              updateAppData(prev => ({ ...prev, Q_Salary_Scale: [...(prev.Q_Salary_Scale || []), ...dataObjects] }));
-            } else if (sheetName === "Q_Roster") {
-              updateAppData(prev => ({ ...prev, Q_Roster: [...(prev.Q_Roster || []), ...dataObjects] }));
-            } else if (sheetName === "Timesheet") {
-              updateAppData(prev => ({ ...prev, Timesheets: [...(prev.Timesheets || []), ...dataObjects] }));
+                // Phân loại dữ liệu dựa trên tên sheet chính xác
+                if (nameUpper === "Q_STAFF") {
+                  updateAppData(prev => ({ ...prev, Q_Staff: [...(prev.Q_Staff || []), ...dataObjects] }));
+                } else if (nameUpper === "Q_SALARY_SCALE") {
+                  updateAppData(prev => ({ ...prev, Q_Salary_Scale: [...(prev.Q_Salary_Scale || []), ...dataObjects] }));
+                } else if (nameUpper === "Q_ROSTER") {
+                  updateAppData(prev => ({ ...prev, Q_Roster: [...(prev.Q_Roster || []), ...dataObjects] }));
+                } else if (nameUpper === "TIMESHEET") {
+                  updateAppData(prev => ({ ...prev, Timesheets: [...(prev.Timesheets || []), ...dataObjects] }));
+                }
+                return;
+              }
+
+              // 2. Payroll sheets (COST, SHEET 1, or any sheet with ID/Name and Total)
+              let headerRowIdx = -1;
+              let h: string[] = [];
+
+              for (let i = 0; i < Math.min(30, rows.length); i++) {
+                const row = rows[i].map(x => String(x || "").trim().toUpperCase());
+                const hasId = row.some(x => COMMON_FIELD_ALIASES["ID Number"].some(a => x.includes(a.toUpperCase())) || COMMON_FIELD_ALIASES["Full name"].some(a => x.includes(a.toUpperCase())));
+                const hasTotal = row.some(x => COMMON_FIELD_ALIASES["TOTAL PAYMENT"].some(a => x.includes(a.toUpperCase())));
+                
+                if (hasId && hasTotal) {
+                  headerRowIdx = i;
+                  h = rows[i].map(x => String(x || "").trim());
+                  break;
+                }
+              }
+
+              if (headerRowIdx !== -1) {
+                foundAnySheet = true;
+                const colMap = findColumnMapping(h, finalHeaders, item.columnMapping);
+                
+                const iId = colMap["ID Number"];
+                const iN = colMap["Full name"];
+                const iT = colMap["TOTAL PAYMENT"];
+                const iAcc = colMap["Bank Account Number"];
+
+                if ((iId !== undefined || iN !== undefined) && iT !== undefined) {
+                  for (let r = headerRowIdx + 1; r < rows.length; r++) {
+                    const rData = rows[r];
+                    if (!rData) continue;
+
+                    const idVal = iId !== undefined ? String(rData[iId] || "").trim() : "";
+                    const nameVal = iN !== undefined ? String(rData[iN] || "").trim() : "";
+                    const totalValFromFile = iT !== undefined ? parseMoneyToNumber(rData[iT]) : 0;
+                    
+                    // Force Bank Account Number to be string
+                    let accVal = "";
+                    if (iAcc !== undefined) {
+                      const rawAcc = rData[iAcc];
+                      accVal = rawAcc !== undefined && rawAcc !== null ? String(rawAcc).replace(/\s/g, '') : "";
+                      if (typeof rawAcc === 'number' && (accVal.includes('E') || accVal.includes('e'))) {
+                        accVal = rawAcc.toLocaleString('fullwide', {useGrouping:false});
+                      }
+                    }
+
+                    // Điều kiện lấy dữ liệu:
+                    // 1. Phải có Tên
+                    if (!nameVal) continue;
+                    // 2. Không lấy các dòng tổng cộng hoặc ký tên
+                    const upperName = nameVal.toUpperCase();
+                    if (upperName.includes("TOTAL COST") || upperName.includes("PREPARED BY") || upperName.includes("TA SUPERVISOR")) continue;
+                    // 3. Phải có số tài khoản
+                    if (!accVal) continue;
+
+                    let obj: any = {};
+                    let calculatedTotal = 0;
+                    const chargeColumns = [
+                      "CHARGE TO LXO", "CHARGE TO EC", "CHARGE TO PT-DEMO",
+                      "Charge MKT Local", "Charge Renewal Projects", "Charge Discovery Camp",
+                      "Charge Summer Outing"
+                    ];
+
+                    finalHeaders.forEach(th => {
+                      if (th === "L07" || th === "Business") return;
+                      const colIdx = colMap[th];
+                      if (colIdx !== undefined) {
+                        let val = rData[colIdx];
+                        if (th === "Bank Account Number") {
+                          val = accVal;
+                        } else if (isMoneyColumn(th)) {
+                          val = parseMoneyToNumber(val);
+                          if (chargeColumns.includes(th)) {
+                            calculatedTotal += val;
+                          }
+                        }
+                        obj[th] = val;
+                      } else {
+                        obj[th] = "";
+                      }
+                    });
+
+                    obj["L07"] = item.l07;
+                    obj["Business"] = item.bus;
+                    // Nếu tổng các cột charge > 0 thì dùng tổng đó, nếu không thì dùng total từ file (để tránh mất dữ liệu nếu file không có các cột charge lẻ)
+                    obj["TOTAL PAYMENT"] = calculatedTotal > 0 ? calculatedTotal : totalValFromFile;
+                    dataRows.push(obj);
+                  }
+                }
+              }
+            } catch (sheetError: any) {
+              console.error(`Lỗi xử lý sheet ${sheetName} trong file ${item.url}:`, sheetError);
             }
           });
 
-          // Xử lý dữ liệu Center (Logic cũ cho sheet COST hoặc sheet đầu tiên)
-          const costSheetName = wb.SheetNames.find(name => name.toUpperCase().includes("COST"));
-          const ws = wb.Sheets[costSheetName || wb.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: false });
-
-          if (rows.length > 0) {
-            // 2. Tìm dòng Header trong 15 dòng đầu
-            let headerRowIdx = -1;
-            let h: string[] = [];
-
-            for (let i = 0; i < Math.min(15, rows.length); i++) {
-              const row = rows[i].map(x => String(x).trim().toUpperCase());
-              const hasId = row.some(x => ["ID NUMBER", "ID", "MÃ NV", "MÃ NHÂN VIÊN", "EMPLOYEE ID", "FULL NAME", "HỌ VÀ TÊN", "TÊN", "NAME"].some(a => x.includes(a)));
-              const hasTotal = row.some(x => ["TOTAL PAYMENT", "THỰC NHẬN", "TỔNG", "AMOUNT", "NET PAY"].some(a => x.includes(a)));
-              
-              if (hasId && hasTotal) {
-                headerRowIdx = i;
-                h = row;
-                break;
-              }
-            }
-
-            if (headerRowIdx === -1) {
-              throw new Error("Không tìm thấy dòng tiêu đề chứa thông tin ID/Tên và Total Payment trong 15 dòng đầu.");
-            }
-
-            // 3. Logic tìm cột thông minh (fallback)
-            const findCol = (aliases: string[]) => h.findIndex(x => aliases.some(a => x.includes(a.toUpperCase())));
-
-            const iId = findCol(["ID NUMBER", "ID", "MÃ NV", "MÃ NHÂN VIÊN", "EMPLOYEE ID"]);
-            const iN = findCol(["FULL NAME", "HỌ VÀ TÊN", "TÊN", "NAME"]);
-            const iT = findCol(["TOTAL PAYMENT", "THỰC NHẬN", "TỔNG", "AMOUNT", "NET PAY"]);
-            
-            // 4. Điều kiện nới lỏng: Cần ID (hoặc Tên) VÀ Total Payment
-            if ((iId === -1 && iN === -1) || iT === -1) {
-              throw new Error(`File không hợp lệ. Cần ít nhất cột ID hoặc Tên VÀ cột Total Payment. Tìm thấy: ID=${iId}, Name=${iN}, Total=${iT}.`);
-            }
-
-            const dataRows: any[] = [];
-            for (let r = headerRowIdx + 1; r < rows.length; r++) {
-              const rData = rows[r];
-              if (!rData[iId] && !rData[iN]) continue;
-              
-              let obj: any = {};
-              // Mapping thông minh
-              finalHeaders.forEach((th) => {
-                const colIdx = h.findIndex(x => {
-                    const normalizedTh = th.toUpperCase();
-                    // Fallback mapping
-                    if (normalizedTh === "ID NUMBER") return x === "ID NUMBER" || x === "ID" || x === "MÃ NV" || x === "MÃ NHÂN VIÊN" || x === "EMPLOYEE ID";
-                    if (normalizedTh === "FULL NAME") return x === "FULL NAME" || x === "HỌ VÀ TÊN" || x === "TÊN" || x === "NAME";
-                    if (normalizedTh === "TOTAL PAYMENT") return x === "TOTAL PAYMENT" || x === "THỰC NHẬN" || x === "TỔNG" || x === "AMOUNT" || x === "NET PAY";
-                    if (normalizedTh === "BANK ACCOUNT NUMBER") return x === "BANK ACCOUNT NUMBER" || x === "STK" || x === "TÀI KHOẢN";
-                    return x === normalizedTh;
-                });
-                if (colIdx !== -1) obj[th] = rData[colIdx];
-                else obj[th] = "";
-              });
-              
-              obj["L07"] = item.l07;
-              obj["Business"] = item.bus;
-              obj["TOTAL PAYMENT"] = parseMoneyToNumber(rData[iT]);
-              dataRows.push(obj);
-            }
+          if (dataRows.length > 0) {
             item.cachedData = dataRows;
             item.status = 'Success';
             successCount++;
+          } else if (!foundAnySheet) {
+            throw new Error("Không tìm thấy dòng tiêu đề chứa thông tin ID/Tên và Total Payment trong bất kỳ sheet nào.");
           } else {
-            item.status = 'Error: No data';
+            item.status = 'Error: No data rows found';
             failCount++;
           }
         } catch (e: any) {
@@ -515,6 +591,15 @@ export function CenterDataConfig() {
             <List className="w-4 h-4 text-indigo-600" /> 1. FILE DỮ LIỆU CENTERS
           </h4>
           <div className="flex items-center gap-2">
+              <Button 
+                onClick={() => processFrCenters(true)}
+                disabled={isProcessing}
+                className="bg-white text-emerald-600 border-2 border-black text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-2 hover:bg-emerald-50 shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
+                title="Tải lại dữ liệu từ các Link/File đã cấu hình"
+              >
+                <RefreshCw className={`w-4 h-4 ${isProcessing ? 'animate-spin' : ''}`} />
+                Reload
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button className="bg-white text-black border-2 border-black text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-2 hover:bg-gray-100 shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all">
@@ -603,6 +688,15 @@ export function CenterDataConfig() {
                                               value={item.url} onChange={(e) => updateRow(item.id, 'url', e.target.value)} />
                                           <Link2 className="w-3 h-3 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                       </div>
+                                      {item.fileObj && (
+                                        <button 
+                                          onClick={() => openMappingDialog(item)}
+                                          className={`p-1.5 border-2 border-black rounded-lg transition-all shadow-[2px_2px_0px_#000] active:translate-y-[1px] active:shadow-none ${item.columnMapping ? 'bg-indigo-500 text-white' : 'bg-white text-black hover:bg-gray-100'}`}
+                                          title="Cấu hình mapping cột"
+                                        >
+                                          <Settings className="w-4 h-4" />
+                                        </button>
+                                      )}
                                   </div>
                                   {item.fileObj && (
                                       <div className="mt-2 ml-1 text-[0.625rem] text-green-600 font-medium flex items-center gap-1 bg-green-50 w-fit px-2 py-0.5 rounded border border-green-100">
@@ -745,6 +839,15 @@ export function CenterDataConfig() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ColumnMappingDialog
+        isOpen={mappingDialogOpen}
+        onClose={() => setMappingDialogOpen(false)}
+        file={mappingTargetRow?.fileObj || null}
+        onSave={handleSaveMapping}
+        initialMapping={mappingTargetRow?.columnMapping}
+        targetFields={centerTargetFields}
+      />
     </motion.div>
   );
 }

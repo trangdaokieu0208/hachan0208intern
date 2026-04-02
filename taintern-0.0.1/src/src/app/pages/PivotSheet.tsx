@@ -411,12 +411,12 @@ export function PivotSheet() {
                   {pivotData.activeCols.map(c => {
                     const val = row.totals[c.key];
                     return (
-                      <td key={c.key} className="text-right font-mono tracking-tighter">
+                      <td key={c.key} className="text-right tracking-tighter">
                         {val !== 0 ? formatMoneyVND(val) : '-'}
                       </td>
                     );
                   })}
-                  <td className="text-right font-bold font-mono tracking-tighter">
+                  <td className="text-right font-bold tracking-tighter">
                     {formatMoneyVND(row.rowTotal)}
                   </td>
                 </tr>
@@ -424,11 +424,11 @@ export function PivotSheet() {
               <tr className="bg-secondary/10 font-black border-t-2 border-primary/20 text-foreground">
                 <td colSpan={2} className="text-right uppercase tracking-widest text-foreground/60">GRAND TOTAL</td>
                 {pivotData.activeCols.map(c => (
-                  <td key={c.key} className="text-right font-mono">
+                  <td key={c.key} className="text-right">
                     {formatMoneyVND(pivotData.colTotals[c.key])}
                   </td>
                 ))}
-                <td className="text-right font-mono">
+                <td className="text-right">
                   {formatMoneyVND(pivotData.grandTotal)}
                 </td>
               </tr>

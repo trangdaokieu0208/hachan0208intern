@@ -3,7 +3,7 @@ import { Plus, UploadCloud, Layers, Trash2, FileSpreadsheet, Loader2, AlertTrian
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 import { useAppData } from '../lib/AppDataContext';
-import { parseMoneyToNumber, cleanText } from '../lib/data-utils';
+import { parseMoneyToNumber, cleanText, isMoneyColumn } from '../lib/data-utils';
 import { toast } from 'sonner';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../components/ui/tooltip';
 import {
@@ -15,6 +15,7 @@ import {
   DialogFooter,
 } from '@/src/app/components/ui/dialog';
 import { Button } from '../components/ui/button';
+import { ColumnMappingDialog } from '../components/ColumnMappingDialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +32,7 @@ interface AERow {
   status: string;
   bank?: string;
   month?: string;
+  columnMapping?: Record<string, string>;
 }
 
 interface PendingUpload {
@@ -81,6 +83,19 @@ export function AEDataConfig() {
   const [showSearch, setShowSearch] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
+
+  const [mappingDialog, setMappingDialog] = useState<{ isOpen: boolean; rowId: string | null }>({
+    isOpen: false,
+    rowId: null
+  });
+
+  const masterAeFields = [
+    "No", "ID Number", "Full name", "Salary Scale", "From", "To",
+    "Bank Account Number", "Bank Name", "CITAD code", "TAX CODE",
+    "Contract No", "CHARGE TO LXO", "CHARGE TO EC", "CHARGE TO PT-DEMO",
+    "Charge MKT Local", "Charge Renewal Projects", "Charge Discovery Camp",
+    "Charge Summer Outing", "TOTAL PAYMENT", "Center"
+  ];
 
   const filteredData = appData.Ae_Global_Inputs.filter(row => 
     row.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -136,7 +151,7 @@ export function AEDataConfig() {
 
   const handleFileUpload = (id: string, file: File) => {
     const allowedExtensions = ['.xlsx', '.xls'];
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 100 * 1024 * 1024; // 100MB
 
     const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     if (!allowedExtensions.includes(fileExtension)) {
@@ -145,7 +160,7 @@ export function AEDataConfig() {
     }
 
     if (file.size > maxSize) {
-      toast.error(`File quá lớn: ${file.name}. Vui lòng tải lên file nhỏ hơn 10MB.`);
+      toast.error(`File quá lớn: ${file.name}. Vui lòng tải lên file nhỏ hơn 100MB.`);
       return;
     }
 
@@ -217,6 +232,19 @@ export function AEDataConfig() {
       return;
     }
 
+    const getColIndex = (headers: string[], targetField: string, mapping?: Record<string, string>, fuzzyKeywords: string[] = []) => {
+      if (mapping && mapping[targetField]) {
+        const mappedHeader = mapping[targetField].toUpperCase().trim();
+        const idx = headers.findIndex(h => String(h).toUpperCase().trim() === mappedHeader);
+        if (idx !== -1) return idx;
+      }
+      return headers.findIndex((h: any) => {
+        const hUp = String(h).toUpperCase().trim();
+        if (hUp === targetField.toUpperCase()) return true;
+        return fuzzyKeywords.some(k => hUp.includes(k.toUpperCase()));
+      });
+    };
+
     setIsProcessing(true);
     setProgress(0);
     setProcessingMessage("Đang chuẩn bị xử lý dữ liệu AE...");
@@ -268,255 +296,335 @@ export function AEDataConfig() {
             throw new Error("File không có sheet nào.");
           }
 
-          for (const sheetName of wb.SheetNames) {
-            const ws = wb.Sheets[sheetName];
-            const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: false });
-            if (rows.length <= 1) continue;
+          // Optimized: Only process relevant sheets
+          const relevantSheets = wb.SheetNames.filter(name => {
+            const n = name.toUpperCase();
+            return n.includes("BANK") || n.includes("NGÂN HÀNG") || 
+                   n.includes("SHEET 1") || n.includes("SHEET1") || 
+                   n.includes("HOLD") || n.includes("SO SÁNH AE");
+          });
 
-            const nameUpper = sheetName.toUpperCase();
-            let sheetProcessed = false;
+          for (const sheetName of relevantSheets) {
+            try {
+              const ws = wb.Sheets[sheetName];
+              if (!ws) continue;
+              
+              // Use raw: true to get actual number objects for Bank Account handling
+              const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: true });
+              if (rows.length <= 1) continue;
 
-            if (nameUpper.includes("BANK") || nameUpper.includes("NGÂN HÀNG")) {
-              let headerRowIndex = -1;
-              for (let r = 0; r < Math.min(30, rows.length); r++) {
-                const rowStr = rows[r].map(c => String(c).toUpperCase()).join(" ");
-                if ((rowStr.includes("FULL NAME") || rowStr.includes("HỌ VÀ TÊN") || rowStr.includes("TÊN")) && 
-                    (rowStr.includes("ACCOUNT") || rowStr.includes("SỐ TÀI KHOẢN") || rowStr.includes("TÀI KHOẢN") || rowStr.includes("STK"))) {
-                  headerRowIndex = r;
-                  break;
+              const nameUpper = sheetName.toUpperCase();
+              let sheetProcessed = false;
+
+              if (nameUpper.includes("BANK") || nameUpper.includes("NGÂN HÀNG")) {
+                let headerRowIndex = -1;
+                for (let r = 0; r < Math.min(30, rows.length); r++) {
+                  const rowStr = rows[r].map(c => String(c || "").toUpperCase()).join(" ");
+                  if ((rowStr.includes("FULL NAME") || rowStr.includes("HỌ VÀ TÊN") || rowStr.includes("TÊN")) && 
+                      (rowStr.includes("ACCOUNT") || rowStr.includes("SỐ TÀI KHOẢN") || rowStr.includes("TÀI KHOẢN") || rowStr.includes("STK"))) {
+                    headerRowIndex = r;
+                    break;
+                  }
                 }
-              }
 
-              if (headerRowIndex !== -1) {
-                foundAnySheet = true;
-                sheetProcessed = true;
-                const h = rows[headerRowIndex];
-                
-                const iS = h.findIndex(x => String(x).toUpperCase().includes("NO"));
-                const iId = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("ID NUMBER") || v === "ID" || v.includes("CMND") || v.includes("MÃ NV"); });
-                const iN = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("NAME") || v.includes("TÊN"); });
-                const iA = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("ACCOUNT") || v.includes("TÀI KHOẢN") || v.includes("STK"); });
-                const iT = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("TOTAL") || v.includes("TỔNG") || v.includes("THỰC NHẬN"); });
-                const iP = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("PAYMENT DETAILS") || v.includes("NỘI DUNG") || v.includes("DIỄN GIẢI") || v.includes("DESCRIPTION"); });
-                const iBank = h.findIndex(x => { const v = String(x).toUpperCase().trim(); return v === "BANK" || v === "NGÂN HÀNG" || v === "TEN NGAN HANG" || v === "TÊN NGÂN HÀNG"; });
-                const iThang = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("THÁNG") || v.includes("MONTH") || v.includes("KỲ"); });
-                const iCenter = h.findIndex(x => { const v = String(x).toUpperCase(); return v === "CENTER" || v.includes("COST CENTER") || v.includes("TRUNG TÂM") || v.includes("AE CODE") || v === "AE" || v.includes("MÃ AE"); });
-
-                for (let r = headerRowIndex + 1; r < rows.length; r++) {
-                  const row = rows[r];
-                  if (row.every(cell => cell === "")) continue;
-
-                  const rawTP = iT !== -1 && row[iT] !== undefined ? row[iT] : "";
-                  const t = parseMoneyToNumber(rawTP);
-                  const nameVal = iN !== -1 && row[iN] !== undefined ? String(row[iN]).trim() : "";
-                  const acc = iA !== -1 && row[iA] !== undefined ? String(row[iA]).replace(/\s/g, '') : "";
-                  const idVal = iId !== -1 && row[iId] !== undefined ? String(row[iId]).trim() : "";
+                if (headerRowIndex !== -1) {
+                  foundAnySheet = true;
+                  sheetProcessed = true;
+                  const h = rows[headerRowIndex].map(c => String(c || "").trim());
                   
-                  let type = "Liên ngân hàng";
-                  if (!acc) type = "⚠️ Thiếu STK";
-                  else if (acc.length < 6 || acc.length > 25) type = "⚠️ Sai độ dài";
-                  else if (acc.startsWith("0") || acc.startsWith("10")) type = "Nội bộ VCB";
+                  const iS = getColIndex(h, "No", item.columnMapping, ["NO", "STT"]);
+                  const iId = getColIndex(h, "ID Number", item.columnMapping, ["ID", "CMND", "MÃ NV"]);
+                  const iN = getColIndex(h, "Full name", item.columnMapping, ["NAME", "TÊN"]);
+                  const iA = getColIndex(h, "Bank Account Number", item.columnMapping, ["ACCOUNT", "TÀI KHOẢN", "STK"]);
+                  const iT = getColIndex(h, "TOTAL PAYMENT", item.columnMapping, ["TOTAL", "TỔNG", "THỰC NHẬN"]);
+                  const iP = getColIndex(h, "Payment details", item.columnMapping, ["DETAILS", "NỘI DUNG", "DIỄN GIẢI", "DESCRIPTION"]);
+                  const iBank = getColIndex(h, "Bank Name", item.columnMapping, ["BANK", "NGÂN HÀNG", "TEN NGAN HANG", "TÊN NGÂN HÀNG"]);
+                  const iThang = getColIndex(h, "Tháng", item.columnMapping, ["THÁNG", "MONTH", "KỲ"]);
+                  const iCenter = getColIndex(h, "Center", item.columnMapping, ["CENTER", "COST CENTER", "TRUNG TÂM", "AE CODE", "AE", "MÃ AE"]);
 
-                  const rawCenterVal = iCenter !== -1 && row[iCenter] !== undefined ? String(row[iCenter]).trim() : "";
-                  const rawCenterKey = rawCenterVal.toLowerCase();
-                  let l07 = rawCenterVal;
-                  let business = "";
+                  for (let r = headerRowIndex + 1; r < rows.length; r++) {
+                    const row = rows[r];
+                    if (!row || row.every(cell => cell === "")) continue;
 
-                  if (aeMap[rawCenterKey]) {
-                    l07 = aeMap[rawCenterKey].name;
-                    business = aeMap[rawCenterKey].bus;
-                  }
-
-                  bankData.push({
-                    "No": iS !== -1 && row[iS] !== undefined ? row[iS] : "", 
-                    "ID Number": idVal, 
-                    "Full name": nameVal,
-                    "L07": l07,
-                    "Business": business,
-                    "Bank Account Number": acc, 
-                    "Bank": (iBank !== -1 && row[iBank] !== undefined && String(row[iBank]).trim() !== "") ? String(row[iBank]).trim() : (item.bank || ""),
-                    "Tháng": (iThang !== -1 && row[iThang] !== undefined && String(row[iThang]).trim() !== "") ? String(row[iThang]).trim() : (item.month || ""),
-                    "TOTAL PAYMENT": t, 
-                    "LOẠI CK": type,
-                    "Payment details": iP !== -1 && row[iP] !== undefined ? String(row[iP]).trim() : "",
-                  });
-                }
-              }
-            }
-
-            if (nameUpper.includes("HOLD")) {
-              let headerRowIndex = -1;
-              for (let r = 0; r < Math.min(30, rows.length); r++) {
-                const rowStr = rows[r].map(c => String(c).toUpperCase()).join(" ");
-                if ((rowStr.includes("FULL NAME") || rowStr.includes("HỌ VÀ TÊN") || rowStr.includes("TÊN")) && 
-                    (rowStr.includes("ACCOUNT") || rowStr.includes("SỐ TÀI KHOẢN") || rowStr.includes("TÀI KHOẢN") || rowStr.includes("STK"))) {
-                  headerRowIndex = r;
-                  break;
-                }
-              }
-
-              if (headerRowIndex !== -1) {
-                foundAnySheet = true;
-                sheetProcessed = true;
-                const h = rows[headerRowIndex];
-                
-                const iId = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("ID NUMBER") || v === "ID" || v.includes("CMND") || v.includes("MÃ NV"); });
-                const iN = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("NAME") || v.includes("TÊN"); });
-                const iA = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("ACCOUNT") || v.includes("TÀI KHOẢN") || v.includes("STK"); });
-                const iT = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("TOTAL") || v.includes("TỔNG") || v.includes("THỰC NHẬN"); });
-                const iBank = h.findIndex(x => { const v = String(x).toUpperCase().trim(); return v === "BANK" || v === "NGÂN HÀNG" || v === "TEN NGAN HANG" || v === "TÊN NGÂN HÀNG"; });
-                const iThang = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("THÁNG") || v.includes("MONTH") || v.includes("KỲ"); });
-                const iTax = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("TAX") || v.includes("MST"); });
-                const iContract = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("CONTRACT") || v.includes("HỢP ĐỒNG"); });
-                const iCenterNote = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("CENTER NOTE") || v.includes("GHI CHÚ"); });
-                const iNote = h.findIndex(x => { const v = String(x).toUpperCase(); return v === "NOTE" || v === "GHI CHÚ"; });
-
-                for (let r = headerRowIndex + 1; r < rows.length; r++) {
-                  const row = rows[r];
-                  if (!row || row.length < 3) continue;
-
-                  const idVal = iId !== -1 && row[iId] !== undefined ? String(row[iId]).trim() : "";
-                  const nameVal = iN !== -1 && row[iN] !== undefined ? String(row[iN]).trim() : "";
-                  const accVal = iA !== -1 && row[iA] !== undefined ? String(row[iA]).replace(/\s/g, '') : "";
-                  const taxCode = iTax !== -1 && row[iTax] !== undefined ? String(row[iTax]).trim() : "";
-                  const contractNo = iContract !== -1 && row[iContract] !== undefined ? String(row[iContract]).trim() : "";
-                  const rawTP = iT !== -1 && row[iT] !== undefined ? row[iT] : "";
-                  const numTP = parseMoneyToNumber(rawTP);
-                  const centerNote = iCenterNote !== -1 && row[iCenterNote] !== undefined ? String(row[iCenterNote]).trim() : "";
-                  const note = iNote !== -1 && row[iNote] !== undefined ? String(row[iNote]).trim() : "";
-                  const bankVal = (iBank !== -1 && row[iBank] !== undefined && String(row[iBank]).trim() !== "") ? String(row[iBank]).trim() : (item.bank || "");
-                  const thangVal = (iThang !== -1 && row[iThang] !== undefined && String(row[iThang]).trim() !== "") ? String(row[iThang]).trim() : (item.month || "");
-
-                  if (!idVal && !nameVal && numTP === 0) continue;
-                  if (!accVal) continue;
-
-                  holdData.push({
-                    "No": holdData.length + 1,
-                    "ID Number": idVal,
-                    "Full name": nameVal,
-                    "Bank Account Number": accVal,
-                    "Bank": bankVal,
-                    "Tháng": thangVal,
-                    "TAX CODE": taxCode,
-                    "Contract No": contractNo,
-                    "TOTAL PAYMENT": numTP,
-                    "CENTER NOTE": centerNote,
-                    "Sheet Source": sheetName,
-                    "Note": note
-                  });
-                }
-              }
-            }
-
-            if (nameUpper.includes("SHEET 1") || nameUpper.includes("SHEET1")) {
-              console.log(`[DEBUG] Found Sheet 1 in file: ${item.name}`);
-              let headerRowIndex = -1;
-              for (let r = 0; r < Math.min(30, rows.length); r++) {
-                const rowStr = rows[r].map(c => String(c).toUpperCase()).join(" ");
-                let matchCount = 0;
-                if (rowStr.includes("FULL NAME") || rowStr.includes("HỌ VÀ TÊN") || rowStr.includes("TÊN NHÂN VIÊN")) matchCount++;
-                if (rowStr.includes("ID NUMBER") || rowStr.includes("MÃ NV") || rowStr.includes("ID")) matchCount++;
-                if (rowStr.includes("TOTAL PAYMENT") || rowStr.includes("THỰC NHẬN") || rowStr.includes("TỔNG")) matchCount++;
-                
-                if (matchCount >= 2) {
-                  headerRowIndex = r;
-                  break;
-                }
-              }
-              console.log(`[DEBUG] Header row index for Sheet 1: ${headerRowIndex}`);
-
-              if (headerRowIndex !== -1) {
-                foundAnySheet = true;
-                sheetProcessed = true;
-                const h = rows[headerRowIndex];
-                console.log(`[DEBUG] Headers found in ${item.name}:`, h);
-                let colIndices: Record<string, number> = {};
-                sheet1Headers.forEach((th) => {
-                  if (th === "Mã AE" || th === "Business") return;
-                  let idx = -1;
-                  const thUp = th.toUpperCase();
-                  idx = h.findIndex(x => String(x).trim().toUpperCase() === thUp);
-                  if (idx === -1) {
-                    if (thUp === "FULL NAME") idx = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("FULL NAME") || v.includes("HỌ VÀ TÊN") || v.includes("TÊN NHÂN VIÊN"); });
-                    else if (thUp === "ID NUMBER") idx = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("ID") || v.includes("MÃ NV") || v.includes("CMND"); });
-                    else if (thUp === "BANK ACCOUNT NUMBER") idx = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("ACCOUNT") || v.includes("TÀI KHOẢN") || v.includes("STK"); });
-                    else if (thUp === "TOTAL PAYMENT") idx = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("TOTAL") || v.includes("TỔNG") || v.includes("THỰC NHẬN"); });
-                    else if (thUp === "BANK NAME") idx = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("BANK NAME") || v.includes("NGÂN HÀNG"); });
-                    else if (thUp === "BANK") idx = h.findIndex(x => { const v = String(x).toUpperCase().trim(); return v === "BANK" || v === "NGÂN HÀNG" || v === "TEN NGAN HANG" || v === "TÊN NGÂN HÀNG"; });
-                    else if (thUp === "THÁNG") idx = h.findIndex(x => { const v = String(x).toUpperCase(); return v.includes("THÁNG") || v.includes("MONTH") || v.includes("KỲ"); });
-                    else idx = h.findIndex(x => String(x).trim().toUpperCase().includes(thUp));
-                  }
-                  colIndices[th] = idx;
-                });
-                console.log(`[DEBUG] Column indices for ${item.name}:`, colIndices);
-                
-                let centerColIndex = h.findIndex(x => {
-                  const v = String(x).trim().toUpperCase();
-                  return v === "CENTER" || v.includes("COST CENTER") || v.includes("CENTERS") || v.includes("AE CODE") || v === "AE" || v.includes("MÃ AE") || v.includes("MÃ CENTERS") || v === "MÃ TT" || v.includes("MÃ TT");
-                });
-                if (centerColIndex === -1) centerColIndex = 19;
-
-                for (let r = headerRowIndex + 1; r < rows.length; r++) {
-                  const row = rows[r];
-                  const idxTP = colIndices["TOTAL PAYMENT"];
-                  const rawTP = (idxTP !== -1 && row[idxTP] !== undefined) ? row[idxTP] : "";
-                  const numTP = parseMoneyToNumber(rawTP);
-                  const idxAcc = colIndices["Bank Account Number"];
-                  const accVal = (idxAcc !== -1 && row[idxAcc] !== undefined) ? String(row[idxAcc]).trim() : "";
-                  const idxName = colIndices["Full name"];
-                  const nameVal = (idxName !== -1 && row[idxName] !== undefined) ? String(row[idxName]).trim() : "";
-
-                  if ((accVal !== "" || numTP !== 0) && (nameVal !== "" || idxName === -1)) {
-                    let obj: any = {};
-                    sheet1Headers.forEach(th => {
-                      if (th === "L07" || th === "Business") return;
-                      const idx = colIndices[th];
-                      let val = (idx !== -1 && row[idx] !== undefined) ? row[idx] : "";
-                      
-                      // Robust NA cleaning
-                      const valStr = String(val).toUpperCase().trim();
-                      if (valStr === "NA" || valStr === "N/A" || valStr === "#N/A" || valStr === "NAN") {
-                        val = "";
-                      }
-                      
-                      obj[th] = val;
-                    });
-
-                    const rawCenterVal = String(row[centerColIndex] || "").trim();
-                    obj["_rawAE"] = rawCenterVal;
-                    const rawCenterKey = cleanText(rawCenterVal).toLowerCase();
+                    const rawTP = iT !== -1 && row[iT] !== undefined ? row[iT] : "";
+                    const t = parseMoneyToNumber(rawTP);
+                    const nameVal = iN !== -1 && row[iN] !== undefined ? String(row[iN]).trim() : "";
                     
-                    if (aeMap[rawCenterKey]) {
-                      obj["L07"] = aeMap[rawCenterKey].name;
-                      obj["Business"] = aeMap[rawCenterKey].bus;
-                    } else {
-                      obj["L07"] = rawCenterVal + " (Chưa Map)"; 
-                      obj["Business"] = ""; 
+                    // Force Bank Account Number to be string
+                    let acc = "";
+                    if (iA !== -1) {
+                      const rawAcc = row[iA];
+                      acc = rawAcc !== undefined && rawAcc !== null ? String(rawAcc).replace(/\s/g, '') : "";
+                      if (typeof rawAcc === 'number' && (acc.includes('E') || acc.includes('e'))) {
+                        acc = rawAcc.toLocaleString('fullwide', {useGrouping:false});
+                      }
                     }
-                    sheet1Data.push(obj);
+
+                    const idVal = iId !== -1 && row[iId] !== undefined ? String(row[iId]).trim() : "";
+                    
+                    let type = "Liên ngân hàng";
+                    if (!acc) type = "⚠️ Thiếu STK";
+                    else if (acc.length < 6 || acc.length > 25) type = "⚠️ Sai độ dài";
+                    else if (acc.startsWith("0") || acc.startsWith("10")) type = "Nội bộ VCB";
+
+                    const rawCenterVal = iCenter !== -1 && row[iCenter] !== undefined ? String(row[iCenter]).trim() : "";
+                    const rawCenterKey = rawCenterVal.toLowerCase();
+                    let l07 = rawCenterVal;
+                    let business = "";
+
+                    if (aeMap[rawCenterKey]) {
+                      l07 = aeMap[rawCenterKey].name;
+                      business = aeMap[rawCenterKey].bus;
+                    }
+
+                    bankData.push({
+                      "No": iS !== -1 && row[iS] !== undefined ? row[iS] : "", 
+                      "ID Number": idVal, 
+                      "Full name": nameVal,
+                      "L07": l07,
+                      "Business": business,
+                      "Bank Account Number": acc, 
+                      "Bank": (iBank !== -1 && row[iBank] !== undefined && String(row[iBank]).trim() !== "") ? String(row[iBank]).trim() : (item.bank || ""),
+                      "Tháng": (iThang !== -1 && row[iThang] !== undefined && String(row[iThang]).trim() !== "") ? String(row[iThang]).trim() : (item.month || ""),
+                      "TOTAL PAYMENT": t, 
+                      "LOẠI CK": type,
+                      "Payment details": iP !== -1 && row[iP] !== undefined ? String(row[iP]).trim() : "",
+                    });
                   }
                 }
-                console.log(`[DEBUG] Processed ${sheet1Data.length} rows for Sheet 1 from ${item.name}`);
               }
-            }
 
-            if (nameUpper.includes("SO SÁNH AE")) {
-              foundAnySheet = true;
-              sheetProcessed = true;
-              for (let r = 1; r < rows.length; r++) {
-                const row = rows[r];
-                soSanhAeData.push({
-                  "ID Number": row[0] || "",
-                  "Full name": row[1] || "",
-                  "Sheet 1 AE": row[2] || 0,
-                  "Bank North AE": row[3] || 0,
-                  "Chênh Lệch": row[4] || 0
-                });
+              if (nameUpper.includes("HOLD")) {
+                let headerRowIndex = -1;
+                for (let r = 0; r < Math.min(30, rows.length); r++) {
+                  const rowStr = rows[r].map(c => String(c || "").toUpperCase()).join(" ");
+                  if ((rowStr.includes("FULL NAME") || rowStr.includes("HỌ VÀ TÊN") || rowStr.includes("TÊN")) && 
+                      (rowStr.includes("ACCOUNT") || rowStr.includes("SỐ TÀI KHOẢN") || rowStr.includes("TÀI KHOẢN") || rowStr.includes("STK"))) {
+                    headerRowIndex = r;
+                    break;
+                  }
+                }
+
+                foundAnySheet = true;
+                sheetProcessed = true;
+
+                if (headerRowIndex !== -1) {
+                  // Header found - use dynamic mapping
+                  const h = rows[headerRowIndex].map(c => String(c || "").trim());
+                  const iId = getColIndex(h, "ID Number", item.columnMapping, ["ID", "CMND", "MÃ NV"]);
+                  const iN = getColIndex(h, "Full name", item.columnMapping, ["NAME", "TÊN"]);
+                  const iA = getColIndex(h, "Bank Account Number", item.columnMapping, ["ACCOUNT", "TÀI KHOẢN", "STK"]);
+                  const iT = getColIndex(h, "TOTAL PAYMENT", item.columnMapping, ["TOTAL", "TỔNG", "THỰC NHẬN"]);
+                  const iBank = getColIndex(h, "Bank Name", item.columnMapping, ["BANK", "NGÂN HÀNG", "TEN NGAN HANG", "TÊN NGÂN HÀNG"]);
+                  const iThang = getColIndex(h, "Tháng", item.columnMapping, ["THÁNG", "MONTH", "KỲ"]);
+                  const iTax = getColIndex(h, "TAX CODE", item.columnMapping, ["TAX", "MST"]);
+                  const iContract = getColIndex(h, "Contract No", item.columnMapping, ["CONTRACT", "HỢP ĐỒNG"]);
+                  const iCenterNote = getColIndex(h, "CENTER NOTE", item.columnMapping, ["CENTER NOTE", "GHI CHÚ"]);
+                  const iNote = getColIndex(h, "Note", item.columnMapping, ["NOTE", "GHI CHÚ"]);
+
+                  for (let r = headerRowIndex + 1; r < rows.length; r++) {
+                    const row = rows[r];
+                    if (!row || row.length < 3) continue;
+
+                    const idVal = iId !== -1 && row[iId] !== undefined ? String(row[iId]).trim() : "";
+                    const nameVal = iN !== -1 && row[iN] !== undefined ? String(row[iN]).trim() : "";
+                    
+                    let accVal = "";
+                    if (iA !== -1) {
+                      const rawAcc = row[iA];
+                      accVal = rawAcc !== undefined && rawAcc !== null ? String(rawAcc).replace(/\s/g, '') : "";
+                      if (typeof rawAcc === 'number' && (accVal.includes('E') || accVal.includes('e'))) {
+                        accVal = rawAcc.toLocaleString('fullwide', {useGrouping:false});
+                      }
+                    }
+
+                    const taxCode = iTax !== -1 && row[iTax] !== undefined ? String(row[iTax]).trim() : "";
+                    const contractNo = iContract !== -1 && row[iContract] !== undefined ? String(row[iContract]).trim() : "";
+                    const rawTP = iT !== -1 && row[iT] !== undefined ? row[iT] : "";
+                    const numTP = parseMoneyToNumber(rawTP);
+                    const centerNote = iCenterNote !== -1 && row[iCenterNote] !== undefined ? String(row[iCenterNote]).trim() : "";
+                    const note = iNote !== -1 && row[iNote] !== undefined ? String(row[iNote]).trim() : "";
+                    const bankVal = (iBank !== -1 && row[iBank] !== undefined && String(row[iBank]).trim() !== "") ? String(row[iBank]).trim() : (item.bank || "");
+                    const thangVal = (iThang !== -1 && row[iThang] !== undefined && String(row[iThang]).trim() !== "") ? String(row[iThang]).trim() : (item.month || "");
+
+                    if (!idVal && !nameVal && numTP === 0) continue;
+                    if (!accVal) continue;
+
+                    holdData.push({
+                      "No": holdData.length + 1,
+                      "ID Number": idVal,
+                      "Full name": nameVal,
+                      "Bank Account Number": accVal,
+                      "Bank": bankVal,
+                      "Tháng": thangVal,
+                      "TAX CODE": taxCode,
+                      "Contract No": contractNo,
+                      "TOTAL PAYMENT": numTP,
+                      "CENTER NOTE": centerNote,
+                      "Sheet Source": sheetName,
+                      "Note": note
+                    });
+                  }
+                } else {
+                  // No header found - use fixed column indices (A-I) as fallback
+                  for (let r = 0; r < rows.length; r++) {
+                    const row = rows[r];
+                    if (!row || row.length < 7) continue;
+
+                    if (String(row[1] || "").toUpperCase().includes("ID NUMBER") || String(row[2] || "").toUpperCase().includes("FULL NAME")) continue;
+
+                    const idVal = String(row[1] || "").trim();
+                    const nameVal = String(row[2] || "").trim();
+                    
+                    let accVal = "";
+                    const rawAcc = row[3];
+                    accVal = rawAcc !== undefined && rawAcc !== null ? String(rawAcc).replace(/\s/g, '') : "";
+                    if (typeof rawAcc === 'number' && (accVal.includes('E') || accVal.includes('e'))) {
+                      accVal = rawAcc.toLocaleString('fullwide', {useGrouping:false});
+                    }
+
+                    const taxCode = String(row[4] || "").trim();
+                    const contractNo = String(row[5] || "").trim();
+                    const numTP = parseMoneyToNumber(row[6]);
+                    const centerNote = String(row[7] || "").trim();
+                    const note = String(row[8] || "").trim();
+
+                    if (!idVal && !nameVal && numTP === 0) continue;
+                    if (!accVal) continue;
+
+                    holdData.push({
+                      "No": holdData.length + 1,
+                      "ID Number": idVal,
+                      "Full name": nameVal,
+                      "Bank Account Number": accVal,
+                      "Bank": item.bank || "",
+                      "Tháng": item.month || "",
+                      "TAX CODE": taxCode,
+                      "Contract No": contractNo,
+                      "TOTAL PAYMENT": numTP,
+                      "CENTER NOTE": centerNote,
+                      "Sheet Source": sheetName,
+                      "Note": note
+                    });
+                  }
+                }
               }
-            }
 
-            if (sheetProcessed) fileProcessedSuccessfully = true;
-            await new Promise(resolve => setTimeout(resolve, 0));
+              if (nameUpper.includes("SHEET 1") || nameUpper.includes("SHEET1")) {
+                let headerRowIndex = -1;
+                for (let r = 0; r < Math.min(30, rows.length); r++) {
+                  const rowStr = rows[r].map(c => String(c || "").toUpperCase()).join(" ");
+                  let matchCount = 0;
+                  if (rowStr.includes("FULL NAME") || rowStr.includes("HỌ VÀ TÊN") || rowStr.includes("TÊN NHÂN VIÊN")) matchCount++;
+                  if (rowStr.includes("ID NUMBER") || rowStr.includes("MÃ NV") || rowStr.includes("ID")) matchCount++;
+                  if (rowStr.includes("TOTAL PAYMENT") || rowStr.includes("THỰC NHẬN") || rowStr.includes("TỔNG")) matchCount++;
+                  
+                  if (matchCount >= 2) {
+                    headerRowIndex = r;
+                    break;
+                  }
+                }
+
+                if (headerRowIndex !== -1) {
+                  foundAnySheet = true;
+                  sheetProcessed = true;
+                  const h = rows[headerRowIndex].map(c => String(c || "").trim());
+                  let colIndices: Record<string, number> = {};
+                  sheet1Headers.forEach((th) => {
+                    if (th === "L07" || th === "Business") return;
+                    
+                    const fuzzyMap: Record<string, string[]> = {
+                      "Full name": ["FULL NAME", "HỌ VÀ TÊN", "TÊN NHÂN VIÊN"],
+                      "ID Number": ["ID", "MÃ NV", "CMND"],
+                      "Bank Account Number": ["ACCOUNT", "TÀI KHOẢN", "STK"],
+                      "TOTAL PAYMENT": ["TOTAL", "TỔNG", "THỰC NHẬN"],
+                      "Bank Name": ["BANK NAME", "NGÂN HÀNG"],
+                      "Bank": ["BANK", "NGÂN HÀNG", "TEN NGAN HANG", "TÊN NGÂN HÀNG"],
+                      "Tháng": ["THÁNG", "MONTH", "KỲ"]
+                    };
+                    
+                    colIndices[th] = getColIndex(h, th, item.columnMapping, fuzzyMap[th] || []);
+                  });
+                  
+                  let centerColIndex = getColIndex(h, "Center", item.columnMapping, ["CENTER", "COST CENTER", "CENTERS", "AE CODE", "AE", "MÃ AE", "MÃ CENTERS", "MÃ TT"]);
+                  if (centerColIndex === -1) centerColIndex = 19;
+
+                  for (let r = headerRowIndex + 1; r < rows.length; r++) {
+                    const row = rows[r];
+                    const idxTP = colIndices["TOTAL PAYMENT"];
+                    const rawTP = (idxTP !== -1 && row[idxTP] !== undefined) ? row[idxTP] : "";
+                    const numTP = parseMoneyToNumber(rawTP);
+                    
+                    const idxAcc = colIndices["Bank Account Number"];
+                    let accVal = "";
+                    if (idxAcc !== -1) {
+                      const rawAcc = row[idxAcc];
+                      accVal = rawAcc !== undefined && rawAcc !== null ? String(rawAcc).trim() : "";
+                      if (typeof rawAcc === 'number' && (accVal.includes('E') || accVal.includes('e'))) {
+                        accVal = rawAcc.toLocaleString('fullwide', {useGrouping:false});
+                      }
+                    }
+
+                    const idxName = colIndices["Full name"];
+                    const nameVal = (idxName !== -1 && row[idxName] !== undefined) ? String(row[idxName]).trim() : "";
+
+                    if ((accVal !== "" || numTP !== 0) && (nameVal !== "" || idxName === -1)) {
+                      let obj: any = {};
+                      sheet1Headers.forEach(th => {
+                        if (th === "L07" || th === "Business") return;
+                        const idx = colIndices[th];
+                        let val = (idx !== -1 && row[idx] !== undefined) ? row[idx] : "";
+                        
+                        const valStr = String(val).toUpperCase().trim();
+                        if (valStr === "NA" || valStr === "N/A" || valStr === "#N/A" || valStr === "NAN") {
+                          val = "";
+                        }
+                        
+                        if (th === "Bank Account Number") {
+                          val = accVal;
+                        } else if (isMoneyColumn(th)) {
+                          val = parseMoneyToNumber(val);
+                        }
+                        
+                        obj[th] = val;
+                      });
+
+                      const rawCenterVal = centerColIndex !== -1 ? String(row[centerColIndex] || "").trim() : "";
+                      obj["_rawAE"] = rawCenterVal;
+                      const rawCenterKey = cleanText(rawCenterVal).toLowerCase();
+                      
+                      if (aeMap[rawCenterKey]) {
+                        obj["L07"] = aeMap[rawCenterKey].name;
+                        obj["Business"] = aeMap[rawCenterKey].bus;
+                      } else {
+                        obj["L07"] = rawCenterVal + " (Chưa Map)"; 
+                        obj["Business"] = ""; 
+                      }
+                      sheet1Data.push(obj);
+                    }
+                  }
+                }
+              }
+
+              if (nameUpper.includes("SO SÁNH AE")) {
+                foundAnySheet = true;
+                sheetProcessed = true;
+                for (let r = 1; r < rows.length; r++) {
+                  const row = rows[r];
+                  soSanhAeData.push({
+                    "ID Number": row[0] || "",
+                    "Full name": row[1] || "",
+                    "Sheet 1 AE": row[2] || 0,
+                    "Bank North AE": row[3] || 0,
+                    "Chênh Lệch": row[4] || 0
+                  });
+                }
+              }
+
+              if (sheetProcessed) fileProcessedSuccessfully = true;
+            } catch (sheetError: any) {
+              console.error(`Lỗi xử lý sheet ${sheetName} trong file ${item.name}:`, sheetError);
+            }
           }
 
           if (fileProcessedSuccessfully) {
@@ -689,6 +797,20 @@ export function AEDataConfig() {
             </AnimatePresence>
             
             <div className="flex items-center gap-1.5 bg-white/65 p-1.5 rounded-2xl border-2 border-primary/10 shadow-inner">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={() => processAEData()}
+                    disabled={isProcessing}
+                    className="p-2.5 border-2 border-primary rounded-xl bg-white text-emerald-600 hover:bg-emerald-50 hover:border-emerald-500 transition-all shadow-hard-sm active:shadow-none active:translate-y-[1px]"
+                    title="Tải lại các file đã chọn trong phiên làm việc này"
+                  >
+                    <RefreshCw className={`w-5 h-5 ${isProcessing ? 'animate-spin' : ''}`} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Reload Files</TooltipContent>
+              </Tooltip>
+
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button 
@@ -867,6 +989,15 @@ export function AEDataConfig() {
                             <UploadCloud className="w-3 h-3" />
                             {row.fileObj ? 'ĐÃ CHỌN' : 'CHỌN FILE'}
                           </button>
+                          {row.fileObj && (
+                            <button
+                              onClick={() => setMappingDialog({ isOpen: true, rowId: row.id })}
+                              className="p-1.5 border-2 border-primary rounded-lg bg-white text-primary hover:bg-primary/5 transition-all shadow-hard-sm active:shadow-none active:translate-y-[1px]"
+                              title="Cấu hình Mapping Cột"
+                            >
+                              <Settings className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           {row.fileObj && <span className="text-[0.5625rem] font-bold text-primary/40 truncate max-w-[100px] uppercase">{row.fileObj.name}</span>}
                         </div>
                       </td>
@@ -1021,6 +1152,20 @@ export function AEDataConfig() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ColumnMappingDialog
+        isOpen={mappingDialog.isOpen}
+        onClose={() => setMappingDialog({ isOpen: false, rowId: null })}
+        file={appData.Ae_Global_Inputs.find(r => r.id === mappingDialog.rowId)?.fileObj || null}
+        targetFields={masterAeFields}
+        initialMapping={appData.Ae_Global_Inputs.find(r => r.id === mappingDialog.rowId)?.columnMapping || {}}
+        onSave={(mapping) => {
+          if (mappingDialog.rowId) {
+            updateRow(mappingDialog.rowId, 'columnMapping', mapping);
+            toast.success("Đã lưu cấu hình mapping cột");
+          }
+        }}
+      />
     </motion.div>
   );
 }

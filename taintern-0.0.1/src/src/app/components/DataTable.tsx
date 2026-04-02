@@ -9,11 +9,12 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { toast } from 'sonner';
+import { parseMoneyToNumber, formatNumber } from '../lib/data-utils';
 
 interface Column {
   key: string;
   label: string;
-  type?: 'text' | 'number' | 'date' | 'currency';
+  type?: 'text' | 'number' | 'date' | 'currency' | 'money';
   sortable?: boolean;
   filterable?: boolean;
   hidden?: boolean;
@@ -44,6 +45,7 @@ interface DataTableProps {
   storageKey?: string;
   hideSearch?: boolean;
   hideToolbar?: boolean;
+  showFooter?: boolean;
 }
 
 const DataRow = React.memo(({ 
@@ -83,7 +85,7 @@ const DataRow = React.memo(({
             onMouseEnter={(e) => handleCellMouseEnter(e, rIdx, cIdx)}
             onDoubleClick={() => startEditing(rIdx, cIdx)}
             onContextMenu={(e) => handleContextMenu(e, rIdx, cIdx)}
-            className={`whitespace-nowrap select-none border-b border-r border-primary/5 ${getAlignment(col.type)} transition-all relative hover:bg-primary/10 hover:text-primary ${isInRange ? 'bg-primary/5 z-10' : ''} ${isActive ? 'ring-2 ring-inset ring-primary z-20 bg-primary/10 shadow-inner' : ''} ${!isActive && !isInRange ? 'group-hover:text-primary' : ''} ${col.type === 'currency' || col.type === 'number' ? 'font-mono tracking-tighter' : ''}`}
+            className={`whitespace-nowrap select-none border-b border-r border-primary/5 ${getAlignment(col.type)} transition-all relative hover:bg-primary/10 hover:text-primary ${isInRange ? 'bg-primary/5 z-10' : ''} ${isActive ? 'ring-2 ring-inset ring-primary z-20 bg-primary/10 shadow-inner' : ''} ${!isActive && !isInRange ? 'group-hover:text-primary' : ''}`}
             style={{ padding: 'var(--table-padding)', width: columnWidths[col.key] ? `${columnWidths[col.key]}px` : undefined, minWidth: columnWidths[col.key] ? `${columnWidths[col.key]}px` : undefined, maxWidth: columnWidths[col.key] ? `${columnWidths[col.key]}px` : undefined, overflow: 'hidden', textOverflow: 'ellipsis' }}
           >
             {isInRange && <div className={`absolute inset-0 pointer-events-none z-10 ${isTopEdge ? 'border-t-2 border-primary/20' : ''} ${isBottomEdge ? 'border-b-2 border-primary/20' : ''} ${isLeftEdge ? 'border-l-2 border-primary/20' : ''} ${isRightEdge ? 'border-r-2 border-primary/20' : ''}`} />}
@@ -98,7 +100,7 @@ const DataRow = React.memo(({
                 />
               </div>
             ) : (
-              <span className="relative z-0">{formatValue(row[col.key], col.type)}</span>
+              <span className="relative z-0">{formatValue(row[col.key], col.type, col.key)}</span>
             )}
           </td>
         );
@@ -131,7 +133,8 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(({
   onExternalSearchChange,
   storageKey,
   hideSearch = false,
-  hideToolbar = false
+  hideToolbar = false,
+  showFooter = false
 }, ref) => {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   const [filters] = useState<Record<string, string>>({});
@@ -163,6 +166,7 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(({
   const [editValue, setEditValue] = useState('');
   const [isSelecting, setIsSelecting] = useState(false);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [columnTypes, setColumnTypes] = useState<Record<string, string>>({});
   const resizingRef = useRef<{ colKey: string; startX: number; startWidth: number } | null>(null);
 
   // Load all configurations from localStorage
@@ -178,6 +182,12 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(({
       const savedWidths = localStorage.getItem(`dt_widths_${storageKey}`);
       if (savedWidths) {
         try { setColumnWidths(JSON.parse(savedWidths)); } catch (e) { console.error(e); }
+      }
+
+      // Column types
+      const savedTypes = localStorage.getItem(`dt_types_${storageKey}`);
+      if (savedTypes) {
+        try { setColumnTypes(JSON.parse(savedTypes)); } catch (e) { console.error(e); }
       }
 
       // Sort config
@@ -376,6 +386,15 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(({
     });
   };
 
+  const updateColumnType = (key: string, type: string) => {
+    setColumnTypes(prev => {
+      const next = { ...prev, [key]: type };
+      if (storageKey) localStorage.setItem(`dt_types_${storageKey}`, JSON.stringify(next));
+      return next;
+    });
+    toast.success(`Đã đổi định dạng cột sang ${type}`);
+  };
+
   React.useImperativeHandle(ref, () => ({
     columns,
     hiddenColumns,
@@ -383,23 +402,19 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(({
     resetTableConfig
   }));
 
-  const formatValue = (value: any, type?: string) => {
-    if (value === null || value === undefined || (typeof value === 'number' && isNaN(value))) return '';
+  const formatValue = (value: any, type?: string, colKey?: string) => {
+    const effectiveType = (colKey && columnTypes[colKey]) || type || 'text';
     
-    switch (type) {
-      case 'currency':
-        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
-      case 'number':
-        return new Intl.NumberFormat('vi-VN').format(value);
-      case 'date':
-        try {
-          return new Date(value).toLocaleDateString('vi-VN');
-        } catch (e) {
-          return String(value);
-        }
-      default:
-        return String(value);
+    if (effectiveType === 'currency' || effectiveType === 'money') {
+      return formatNumber(value, 'money');
     }
+    if (effectiveType === 'number') {
+      return formatNumber(value, 'number');
+    }
+    if (effectiveType === 'date') {
+      return formatNumber(value, 'date');
+    }
+    return String(value || "");
   };
 
   const getAlignment = (type?: string) => {
@@ -748,6 +763,25 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(({
                   ))}
                 </div>
                 <DropdownMenuSeparator className="bg-primary/10 mx-1" />
+                <DropdownMenuLabel className="text-[0.625rem] font-black uppercase tracking-widest text-primary/60 px-2 py-1.5">Định dạng cột</DropdownMenuLabel>
+                <div className="max-h-[200px] overflow-auto custom-scrollbar py-1">
+                  {visibleColumns.slice(0, 10).map(col => (
+                    <div key={col.key} className="px-2 py-1 flex items-center justify-between gap-2">
+                      <span className="text-[0.6rem] font-bold truncate max-w-[80px]">{col.label}</span>
+                      <select 
+                        value={columnTypes[col.key] || col.type || 'text'}
+                        onChange={(e) => updateColumnType(col.key, e.target.value)}
+                        className="text-[0.6rem] bg-secondary/10 border-none rounded px-1 py-0.5 outline-none"
+                      >
+                        <option value="text">Chữ</option>
+                        <option value="number">Số</option>
+                        <option value="money">Tiền</option>
+                        <option value="date">Ngày</option>
+                      </select>
+                    </div>
+                  ))}
+                </div>
+                <DropdownMenuSeparator className="bg-primary/10 mx-1" />
                 <DropdownMenuItem
                   onSelect={resetTableConfig}
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer hover:bg-rose-50 text-rose-500 transition-colors group"
@@ -857,6 +891,34 @@ export const DataTable = React.forwardRef<DataTableRef, DataTableProps>(({
                 ))
               )}
             </tbody>
+            {showFooter && (
+              <tfoot className="bg-primary/5 border-t-2 border-primary/20 sticky bottom-0 z-30 backdrop-blur-sm">
+                <tr className="divide-x divide-primary/5">
+                  {selectable && <td className="bg-primary/5" />}
+                  {visibleColumns.map((col: any, cIdx: number) => {
+                    const isNumeric = col.type === 'number' || col.type === 'currency';
+                    const total = isNumeric ? paginatedData.reduce((sum, row) => sum + (parseMoneyToNumber(row[col.key]) || 0), 0) : null;
+                    
+                    return (
+                      <td 
+                        key={`footer-${col.key}`}
+                        className={`whitespace-nowrap font-black text-[0.625rem] ${getAlignment(col.type)} text-primary uppercase tracking-wider bg-primary/5`}
+                        style={{ 
+                          padding: 'var(--table-padding)', 
+                          width: columnWidths[col.key] ? `${columnWidths[col.key]}px` : undefined,
+                          minWidth: columnWidths[col.key] ? `${columnWidths[col.key]}px` : undefined,
+                          maxWidth: columnWidths[col.key] ? `${columnWidths[col.key]}px` : undefined,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}
+                      >
+                        {cIdx === 0 ? 'Tổng cộng' : (total !== null ? formatValue(total, col.type) : '')}
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
 

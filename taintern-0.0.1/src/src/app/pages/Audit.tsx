@@ -89,7 +89,7 @@ export function Audit() {
       return;
     }
 
-    const keyPatterns = ['Mã AE', 'L07', 'CENTER', 'Centers', 'BUSINESS UNIT', 'MÃ CENTER'];
+    const keyPatterns = ['L07', 'Mã AE', 'CENTER', 'Centers', 'BUSINESS UNIT', 'MÃ CENTER', 'TRUNG TÂM'];
     const key1 = findCol(data1[0], keyPatterns);
     const key2 = findCol(data2[0], keyPatterns);
 

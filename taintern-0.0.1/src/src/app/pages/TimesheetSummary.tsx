@@ -529,6 +529,7 @@ export function TimesheetSummary() {
                 onExternalSearchChange={setSearchTerm}
                 storageKey={`timesheet_summary_${activeTab}`}
                 hideSearch={true}
+                showFooter={true}
               />
             )}
           </div>

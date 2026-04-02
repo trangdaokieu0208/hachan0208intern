@@ -504,6 +504,7 @@ export function BulkPayment() {
                   externalSearchTerm={searchTerm}
                   onExternalSearchChange={setSearchTerm}
                   storageKey="bulk_payment"
+                  showFooter={true}
                 />
               )}
             </div>

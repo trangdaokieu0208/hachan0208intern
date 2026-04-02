@@ -155,12 +155,6 @@
     font-family: var(--font-main, 'Inter', sans-serif);
   }
 
-  /* Monospace for numeric data in tables */
-  td.font-mono, .font-mono {
-    font-family: var(--font-mono, "JetBrains Mono", monospace) !important;
-    @apply tracking-tighter;
-  }
-
   .dynamic-title-align {
     align-items: var(--title-align, flex-start) !important;
     text-align: var(--text-align, left) !important;

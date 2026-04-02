@@ -15,7 +15,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
-import { parseMoneyToNumber, removeVietnameseTones, findColumnMapping, cleanText } from '../lib/data-utils';
+import { parseMoneyToNumber, removeVietnameseTones, findColumnMapping, cleanText, isMoneyColumn } from '../lib/data-utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Button } from '../components/ui/button';
 
@@ -158,7 +158,15 @@ export function MasterAE() {
         const buf = await item.fileObj.arrayBuffer();
         const wb = XLSX.read(buf);
 
-        for (const sheetName of wb.SheetNames) {
+        // Optimized: Only process relevant sheets
+        const relevantSheets = wb.SheetNames.filter(name => {
+          const n = name.toUpperCase();
+          return n.includes("BANK") || n.includes("NGÂN HÀNG") || 
+                 n.includes("SHEET 1") || n.includes("SHEET1") || 
+                 n.includes("HOLD") || n.includes("SO SÁNH AE");
+        });
+
+        for (const sheetName of relevantSheets) {
           const rows: any[][] = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: "", raw: false });
           if (rows.length <= 2) continue;
           const nameUpper = sheetName.toUpperCase();
@@ -175,7 +183,7 @@ export function MasterAE() {
             }
             if (headerRowIndex !== -1) {
               const h = rows[headerRowIndex] as string[];
-              const colMap = findColumnMapping(h, ["STT", "ID NUMBER", "FULL NAME", "BANK ACCOUNT NUMBER", "TOTAL PAYMENT", "PAYMENT DETAILS"]);
+              const colMap = findColumnMapping(h, ["STT", "ID NUMBER", "FULL NAME", "BANK ACCOUNT NUMBER", "TOTAL PAYMENT", "PAYMENT DETAILS"], item.columnMapping);
               
               for (let r = headerRowIndex + 1; r < rows.length; r++) {
                 const row = rows[r];
@@ -207,24 +215,40 @@ export function MasterAE() {
 
           // HOLD SHEET
           if (nameUpper.includes("HOLD")) {
-            for (let r = 0; r < rows.length; r++) {
-              const row = rows[r];
-              if (String(row[1]).toUpperCase().includes("ID NUMBER")) continue;
-              if (!row[1] && !row[2] && !row[6]) continue;
-              if (!row[3] || String(row[3]).trim() === "") continue;
+            let headerRowIndex = -1;
+            for (let r = 0; r < Math.min(30, rows.length); r++) {
+              let rowStr = rows[r].map(c => String(c).toUpperCase()).join(" ");
+              if ((rowStr.includes("FULL NAME") || rowStr.includes("HỌ VÀ TÊN")) && 
+                  (rowStr.includes("ACCOUNT") || rowStr.includes("SỐ TÀI KHOẢN") || rowStr.includes("STK"))) {
+                headerRowIndex = r; break;
+              }
+            }
 
-              holdData.push({
-                "No": holdData.length + 1,
-                "ID Number": row[1] || "",
-                "Full name": row[2] || "",
-                "Bank Account Number": row[3] || "",
-                "TAX CODE": row[4] || "",
-                "Contract No": row[5] || "",
-                "TOTAL PAYMENT": parseMoneyToNumber(row[6]),
-                "CENTER NOTE": row[7] || "",
-                "Sheet Source": sheetName,
-                "Note": row[8] || ""
-              });
+            if (headerRowIndex !== -1) {
+              const h = rows[headerRowIndex] as string[];
+              const colMap = findColumnMapping(h, ["ID NUMBER", "FULL NAME", "BANK ACCOUNT NUMBER", "TAX CODE", "CONTRACT NO", "TOTAL PAYMENT", "CENTER NOTE", "NOTE"], item.columnMapping);
+              
+              for (let r = headerRowIndex + 1; r < rows.length; r++) {
+                const row = rows[r];
+                const idVal = colMap["ID NUMBER"] !== -1 ? String(row[colMap["ID NUMBER"]]).trim() : "";
+                const nameVal = colMap["FULL NAME"] !== -1 ? String(row[colMap["FULL NAME"]]).trim() : "";
+                const totalVal = colMap["TOTAL PAYMENT"] !== -1 ? parseMoneyToNumber(row[colMap["TOTAL PAYMENT"]]) : 0;
+                
+                if (!idVal && !nameVal && totalVal === 0) continue;
+
+                holdData.push({
+                  "No": holdData.length + 1,
+                  "ID Number": idVal,
+                  "Full name": nameVal,
+                  "Bank Account Number": colMap["BANK ACCOUNT NUMBER"] !== -1 ? String(row[colMap["BANK ACCOUNT NUMBER"]]).trim() : "",
+                  "TAX CODE": colMap["TAX CODE"] !== -1 ? String(row[colMap["TAX CODE"]]).trim() : "",
+                  "Contract No": colMap["CONTRACT NO"] !== -1 ? String(row[colMap["CONTRACT NO"]]).trim() : "",
+                  "TOTAL PAYMENT": totalVal,
+                  "CENTER NOTE": colMap["CENTER NOTE"] !== -1 ? String(row[colMap["CENTER NOTE"]]).trim() : "",
+                  "Sheet Source": sheetName,
+                  "Note": colMap["NOTE"] !== -1 ? String(row[colMap["NOTE"]]).trim() : ""
+                });
+              }
             }
           }
 
@@ -242,10 +266,12 @@ export function MasterAE() {
 
             if (headerRowIndex !== -1) {
               const h = rows[headerRowIndex] as string[];
-              const colMap = findColumnMapping(h, sheet1Headers);
+              const colMap = findColumnMapping(h, sheet1Headers, item.columnMapping);
               
               let centerColIndex = h.findIndex(x => {
                 let v = String(x).trim().toUpperCase();
+                const mappedCenter = item.columnMapping?.["Center"]?.toUpperCase().trim();
+                if (mappedCenter && v === mappedCenter) return true;
                 return v === "CENTER" || v.includes("COST CENTER") || v.includes("TRUNG TÂM") || v.includes("AE CODE") || v === "AE" || v.includes("MÃ AE");
               });
 
@@ -260,7 +286,13 @@ export function MasterAE() {
                   sheet1Headers.forEach(th => {
                     if (th === "L07" || th === "Business") return;
                     const idx = colMap[th];
-                    obj[th] = (idx !== -1 && row[idx] !== undefined) ? row[idx] : "";
+                    let val = (idx !== -1 && row[idx] !== undefined) ? row[idx] : "";
+                    
+                    if (isMoneyColumn(th)) {
+                      val = parseMoneyToNumber(val);
+                    }
+                    
+                    obj[th] = val;
                   });
 
                   const rawCenterVal = String(row[centerColIndex] || "").trim();
@@ -601,6 +633,7 @@ export function MasterAE() {
                   storageKey={`master_ae_${activeTab}`}
                   hideSearch={true}
                   hideToolbar={true}
+                  showFooter={true}
                 />
               </div>
             )}

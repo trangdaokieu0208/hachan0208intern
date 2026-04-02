@@ -155,11 +155,12 @@ export function DataCenters() {
 
         // Kiểm tra Full name - Loại bỏ các dòng đặc biệt
         const fullName = String(staffInfo["Full name"] || staffInfo["Name"] || staffInfo["Họ và tên"] || "").trim();
-        if (fullName.includes("Total Cost") || fullName.includes("Prepared by TA Supervisor")) return;
+        const upperFullName = fullName.toUpperCase();
+        if (upperFullName.includes("TOTAL COST") || upperFullName.includes("PREPARED BY") || upperFullName.includes("TA SUPERVISOR")) return;
 
         // Kiểm tra Bank Account Number - Chỉ lấy dữ liệu khi có số tài khoản
-        const bankAccount = staffInfo["Bank Account Number"] || staffInfo["STK"] || "";
-        if (!String(bankAccount).trim()) return;
+        const bankAccount = String(staffInfo["Bank Account Number"] || staffInfo["STK"] || "").trim();
+        if (!bankAccount) return;
 
         const type = row["Type"] || row["Task Type"] || "";
         const duration = parseMoneyToNumber(row["Duration"] || row["Hours"]) || 0;
@@ -241,15 +242,20 @@ export function DataCenters() {
       // Chuyển object thành array và thêm số thứ tự
       const finalData = Object.values(aggregatedData).map((row, index) => {
         const roundedRow = { ...row };
-        const numericCols = [
+        const chargeCols = [
           "CHARGE TO LXO", "CHARGE TO EC", "CHARGE TO PT-DEMO", 
           "Charge MKT Local", "Charge Renewal Projects", 
-          "Charge Discovery Camp", "Charge Summer Outing", "TOTAL PAYMENT"
+          "Charge Discovery Camp", "Charge Summer Outing"
         ];
         
-        numericCols.forEach(col => {
-          roundedRow[col] = Math.round(Number(row[col]) || 0);
+        let calculatedTotal = 0;
+        chargeCols.forEach(col => {
+          const val = Math.round(Number(row[col]) || 0);
+          roundedRow[col] = val;
+          calculatedTotal += val;
         });
+
+        roundedRow["TOTAL PAYMENT"] = calculatedTotal > 0 ? calculatedTotal : Math.round(Number(row["TOTAL PAYMENT"]) || 0);
 
         return {
           "No": index + 1,
@@ -461,6 +467,7 @@ export function DataCenters() {
             onExternalSearchChange={setSearchTerm}
             hideSearch={true}
             hideToolbar={true}
+            showFooter={true}
           />
         </div>
       </motion.div>
